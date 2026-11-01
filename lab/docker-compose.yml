@@ -1,0 +1,74 @@
+# Laboratorio de fuerza bruta SSH. Uso (desde lab/):
+#   docker compose --profile concentrado up --build
+# Perfiles: concentrado | multi_cuenta | distribuido | spraying
+#
+# La red es /16 para que los atacantes caigan en subredes /24 distintas a propósito:
+# attacker_1 y attacker_2 comparten 172.28.1.0/24 (la generalización /24 los fusiona),
+# attacker_3 está en 172.28.2.0/24 (sigue separado). Ese contraste es parte del experimento.
+
+name: anonlogs-lab
+
+x-attacker: &attacker
+  build:
+    context: ..                       # raíz del repo, para poder copiar tools/c/
+    dockerfile: lab/attacker/Dockerfile
+  environment:
+    TARGET_HOST: victim
+    START_DELAY: "10"
+  depends_on:
+    - victim
+
+services:
+  victim:
+    build:
+      context: ./victim
+    hostname: victim
+    environment:
+      TZ: UTC
+      LEGIT_USERS: "alice bob carol"
+      LEGIT_PASSWORD: ${LEGIT_PASSWORD:-cambiar_en_lab}
+    volumes:
+      - ./output/victim:/var/log      # auth.log queda en lab/output/victim/auth.log
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.10
+
+  legit_traffic:
+    build:
+      context: ./legit_traffic
+    environment:
+      TARGET_HOST: victim
+      LEGIT_USERS: "alice bob carol"
+      LEGIT_PASSWORD: ${LEGIT_PASSWORD:-cambiar_en_lab}
+    depends_on:
+      - victim
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.50
+
+  attacker_1:
+    <<: *attacker
+    profiles: [concentrado, multi_cuenta, distribuido, spraying]
+    networks:
+      labnet:
+        ipv4_address: 172.28.1.101
+
+  attacker_2:
+    <<: *attacker
+    profiles: [distribuido, spraying]
+    networks:
+      labnet:
+        ipv4_address: 172.28.1.102
+
+  attacker_3:
+    <<: *attacker
+    profiles: [distribuido, spraying]
+    networks:
+      labnet:
+        ipv4_address: 172.28.2.101
+
+networks:
+  labnet:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

@@ -1,0 +1,59 @@
+# Parámetros fijos del experimento. Lo que varía entre runs va en matrix_*.yaml.
+# Las claves marcadas DECISIÓN están pendientes de acordar en grupo (docs/diseno_experimento.md).
+
+paths:
+  raw: data/raw
+  ground_truth: data/ground_truth
+  interim: data/interim            # interim/<dataset>/
+  processed: data/processed        # processed/<dataset>/<tratamiento>/<campo>/
+  features: data/features          # features/<dataset>/<tratamiento>-<campo>/w<ventana>/
+  runs: results/runs
+  tables: results/tables
+  figures: results/figures
+
+datasets:
+  lab_concentrado:   {source: lab,    path: raw/lab/concentrado,  ground_truth: ground_truth/lab_concentrado.csv}
+  lab_multi_cuenta:  {source: lab,    path: raw/lab/multi_cuenta, ground_truth: ground_truth/lab_multi_cuenta.csv}
+  lab_distribuido:   {source: lab,    path: raw/lab/distribuido,  ground_truth: ground_truth/lab_distribuido.csv}
+  lab_spraying:      {source: lab,    path: raw/lab/spraying,     ground_truth: ground_truth/lab_spraying.csv}
+  loghub_openssh:    {source: loghub, path: raw/loghub,           ground_truth: null}   # sin etiquetas
+
+# DECISIÓN D1: unidad de análisis (qué es una fila para el detector).
+# Opciones: ventana | ventana_ip | ventana_usuario
+unit_of_analysis: null
+
+# DECISIÓN D2: cuándo una unidad se etiqueta como ataque.
+# Opciones: any (basta un evento de ataque) | fraction (fracción de eventos de ataque >= min_fraction)
+labeling:
+  rule: null
+  min_fraction: null
+
+anonymization:
+  suppression_token: "<SUPRIMIDO>"
+  ipv4_prefix: 24
+  hmac_digest_chars: 16            # longitud del seudónimo mostrado; el HMAC completo es SHA-256
+
+split:
+  method: temporal
+  train_fraction: 0.6
+  # DECISIÓN D4: si la parte de prueba queda sin ataques, splitting.py falla con un error claro.
+  min_attack_units_in_test: 1
+
+detectors:
+  isolation_forest:
+    n_estimators: 200
+    max_samples: auto
+    contamination: auto
+  ssif:
+    variant: null                  # DECISIÓN D5: "if_entrenado_en_normales" | "ssif_literatura"
+  umbral:
+    # Umbral por regla: la unidad es anómala si alguna regla activa supera su umbral.
+    fallos_por_ip: 10
+    fallos_por_usuario: 10
+    usuarios_unicos_por_ip: 5
+    fallos_por_ventana: 30
+
+stats:
+  test: wilcoxon_pareado           # pareado por semilla
+  correction: holm
+  alpha: 0.05

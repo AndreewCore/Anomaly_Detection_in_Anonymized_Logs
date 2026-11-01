@@ -1,0 +1,7 @@
+# Normaliza finales de línea a LF: los .sh y Dockerfiles se ejecutan desde
+# Docker Desktop en Windows y un CRLF rompe los shebangs dentro del contenedor.
+* text=auto eol=lf
+
+*.png  binary
+*.pdf  binary
+*.ipynb text eol=lf

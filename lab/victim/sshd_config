@@ -1,0 +1,12 @@
+# Configuración mínima de la víctima: acepta contraseñas para que los intentos de fuerza bruta lleguen a sshd.
+Port 22
+PasswordAuthentication yes
+KbdInteractiveAuthentication no
+PermitRootLogin no
+UsePAM yes
+# AUTH + INFO registra "Failed password" / "Invalid user" / "Accepted password", que es lo que se analiza.
+SyslogFacility AUTH
+LogLevel INFO
+# Sin límite bajo para que un ataque concentrado no quede cortado por MaxStartups.
+MaxStartups 100:30:200
+MaxAuthTries 6

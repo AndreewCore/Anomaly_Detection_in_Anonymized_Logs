@@ -1,0 +1,43 @@
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Secretos ---
+.env
+
+# --- Asistentes ---
+CLAUDE.md
+
+# --- Binarios de C (se regeneran con `make` en tools/c/) ---
+tools/c/agente
+tools/c/anomalia
+*.o
+
+# --- Datos: viven en Drive, nunca en git ---
+data/**
+!data/**/
+!data/**/.gitkeep
+!data/README.md
+
+# --- Salida del laboratorio ---
+lab/output/*
+!lab/output/.gitkeep
+
+# --- Runs crudos: se sincronizan con Drive ---
+results/runs/*
+!results/runs/.gitkeep
+
+# --- Editor / SO ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

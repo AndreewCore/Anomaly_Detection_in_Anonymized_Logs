@@ -1,0 +1,17 @@
+# Prueba de humo del pipeline: mínima y rápida. No produce resultados para el artículo.
+phase: smoke
+
+datasets: [lab_concentrado]
+
+treatments:
+  - {tratamiento: original,      campo: ninguno}
+  - {tratamiento: seudonimizada, campo: ambos}
+
+rule_sets:
+  todas: [fallos_por_ip, fallos_por_usuario, usuarios_unicos_por_ip, fallos_por_ventana]
+
+window_seconds: [300]
+
+detectors: [isolation_forest, umbral]
+
+seeds: [0, 1]

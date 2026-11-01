@@ -1,0 +1,12 @@
+# Password spraying: N IPs -> N cuentas, pocas claves por cuenta.
+scenario: spraying
+compose_profile: spraying
+attackers: [attacker_1, attacker_2, attacker_3]
+target_users: [admin, root, test, guest, user1, administrator, alice, bob]
+passwords_per_user: 2
+# Requisito de diseño: los ataques se reparten en varias ráfagas a lo largo de toda la captura,
+# para que la partición temporal entrenamiento/prueba deje ataques en ambas partes
+# (ver docs/diseno_experimento.md, decisión D4).
+duration_minutes: 120          # TODO: confirmar con el grupo
+bursts: 6                      # ráfagas de ataque repartidas en la captura
+legit_traffic: true

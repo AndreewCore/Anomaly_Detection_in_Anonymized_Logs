@@ -1,0 +1,14 @@
+# Versiones verificadas con Python 3.14.7, instalando solo desde wheels
+# (pip install --only-binary=:all:), el 2026-11-01.
+numpy==2.5.4
+pandas==3.1.0
+scipy==1.18.1
+scikit-learn==1.9.1
+matplotlib==3.11.2
+pyyaml==6.0.3
+python-dotenv==1.2.4
+jupyter==1.1.1
+pytest==9.2.0
+
+# Instala el paquete del proyecto (src/anonlogs) en modo editable.
+-e .

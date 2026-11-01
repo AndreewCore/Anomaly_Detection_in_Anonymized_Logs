@@ -1,0 +1,31 @@
+# Fase 1 — exploración: todas las combinaciones curadas, pocas semillas.
+# Objetivo: descartar combinaciones poco prometedoras y elegir finalistas para matrix_confirmacion.yaml.
+phase: exploracion
+
+datasets: [lab_concentrado, lab_multi_cuenta, lab_distribuido, lab_spraying, loghub_openssh]
+
+# Pares (tratamiento, campo) válidos — se listan explícitamente, no se hace producto cartesiano.
+# ip_generalizada solo aplica al campo ip (decisión D3 en docs/diseno_experimento.md).
+treatments:
+  - {tratamiento: original,        campo: ninguno}
+  - {tratamiento: suprimida,       campo: usuario}
+  - {tratamiento: suprimida,       campo: ip}
+  - {tratamiento: suprimida,       campo: ambos}
+  - {tratamiento: seudonimizada,   campo: usuario}
+  - {tratamiento: seudonimizada,   campo: ip}
+  - {tratamiento: seudonimizada,   campo: ambos}
+  - {tratamiento: ip_generalizada, campo: ip}
+
+# Conjuntos de reglas curados (nombre -> features). No todas las combinaciones posibles.
+rule_sets:
+  ip:              [fallos_por_ip]
+  usuario:         [fallos_por_usuario]
+  ip_usuarios:     [fallos_por_ip, usuarios_unicos_por_ip]
+  volumen:         [fallos_por_ventana]
+  todas:           [fallos_por_ip, fallos_por_usuario, usuarios_unicos_por_ip, fallos_por_ventana]
+
+window_seconds: [60, 300, 900]
+
+detectors: [isolation_forest, ssif, umbral]
+
+seeds: [0, 1, 2, 3, 4]

@@ -1,0 +1,28 @@
+# Fase 2 — confirmación: solo finalistas de la exploración, 30 semillas.
+# De aquí salen las tablas, pruebas estadísticas y figuras del artículo.
+# TODO: completar datasets/rule_sets/window_seconds con los finalistas tras analizar la fase 1,
+#       y registrar en docs/diseno_experimento.md el criterio con que se eligieron.
+phase: confirmacion
+
+datasets: [lab_concentrado, lab_multi_cuenta, lab_distribuido, lab_spraying]
+
+# Se mantienen todos los tratamientos: comparar tratamientos es la pregunta de investigación.
+treatments:
+  - {tratamiento: original,        campo: ninguno}
+  - {tratamiento: suprimida,       campo: usuario}
+  - {tratamiento: suprimida,       campo: ip}
+  - {tratamiento: suprimida,       campo: ambos}
+  - {tratamiento: seudonimizada,   campo: usuario}
+  - {tratamiento: seudonimizada,   campo: ip}
+  - {tratamiento: seudonimizada,   campo: ambos}
+  - {tratamiento: ip_generalizada, campo: ip}
+
+rule_sets:
+  todas: [fallos_por_ip, fallos_por_usuario, usuarios_unicos_por_ip, fallos_por_ventana]   # TODO finalistas
+
+window_seconds: [300]              # TODO finalista
+
+detectors: [isolation_forest, ssif, umbral]
+
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+        20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
