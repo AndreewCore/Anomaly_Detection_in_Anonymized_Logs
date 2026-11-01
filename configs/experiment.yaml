@@ -45,7 +45,11 @@ detectors:
     max_samples: auto
     contamination: auto
   ssif:
-    variant: null                  # DECISIÓN D5: "if_entrenado_en_normales" | "ssif_literatura"
+    # D5 (tomada): IF entrenado solo con unidades normales del entrenamiento.
+    variant: if_entrenado_en_normales
+    n_estimators: 200
+    max_samples: auto
+    contamination: auto
   umbral:
     # Umbral por regla: la unidad es anómala si alguna regla activa supera su umbral.
     fallos_por_ip: 10

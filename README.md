@@ -24,6 +24,16 @@ Nos enfocamos en ataques de **fuerza bruta contra SSH** en logs de autenticació
 
 El diseño detallado y las decisiones pendientes están en [`docs/diseno_experimento.md`](docs/diseno_experimento.md).
 
+## Estado actual (2026-11-01)
+
+> **Si un script termina con `NotImplementedError`, no es un error.** El proyecto está en etapa de estructura: casi todo el pipeline existe como *stub* (la función y su descripción están creadas, la lógica no).
+
+| Ya funciona | Falta implementar | Bloqueado |
+|---|---|---|
+| Descarga de Loghub (script 00, al mergear el PR #1) · `04_run_matrix.py --dry-run` · `make -C tools/c` · `pytest` · detectores Isolation Forest y SSIF | Parseo (01), anonimización (02), runner, métricas, exposición residual, detector por umbral, tablas (05) y figuras (06) | Features (03) → decisión D1 · etiquetado → D2 · partición → D4 · datos del laboratorio → mejoras de `anomalia.c` |
+
+El detalle por archivo y los problemas conocidos están en [`docs/estado_implementacion.md`](docs/estado_implementacion.md).
+
 ## 2. ¿Dónde va cada cosa?
 
 | Herramienta | Qué contiene | Quién / cuándo se usa |
@@ -116,17 +126,31 @@ make -C tools/c clean    # borra los binarios
 
 Ejecuta todo desde la raíz del repo con el venv activo:
 
-| # | Script | Qué hace |
-|---|---|---|
-| 0 | `python scripts/00_download_loghub.py` | Descarga Loghub OpenSSH a `data/raw/loghub/` |
-| 1 | `python scripts/01_parse_logs.py` | Convierte los logs en tabla y asocia el Ground Truth por `event_id` |
-| 2 | `python scripts/02_anonymize.py --matrix <m>` | Genera las versiones anonimizadas |
-| 3 | `python scripts/03_build_features.py --matrix <m>` | Calcula las features por ventana |
-| 4 | `python scripts/04_run_matrix.py --matrix <m>` | Ejecuta todos los runs (reanudable; `--dry-run` cuenta los runs) |
-| 5 | `python scripts/05_build_tables.py --phase <f>` | Consolida runs → tablas + Wilcoxon/Holm |
-| 6 | `python scripts/06_make_figures.py --phase <f>` | Figuras PDF + PNG para Overleaf |
+| # | Script | Qué hace | Estado |
+|---|---|---|---|
+| 0 | `python scripts/00_download_loghub.py` | Descarga Loghub OpenSSH a `data/raw/loghub/` | ✅ al mergear el PR #1 |
+| 1 | `python scripts/01_parse_logs.py` | Convierte los logs en tabla y asocia el Ground Truth por `event_id` | 🟡 stub |
+| 2 | `python scripts/02_anonymize.py --matrix <m>` | Genera las versiones anonimizadas | 🟡 stub |
+| 3 | `python scripts/03_build_features.py --matrix <m>` | Calcula las features por ventana | ⛔ espera D1 |
+| 4 | `python scripts/04_run_matrix.py --matrix <m>` | Ejecuta todos los runs (reanudable; `--dry-run` cuenta los runs) | ✅ solo `--dry-run` |
+| 5 | `python scripts/05_build_tables.py --phase <f>` | Consolida runs → tablas + Wilcoxon/Holm | 🟡 stub |
+| 6 | `python scripts/06_make_figures.py --phase <f>` | Figuras PDF + PNG para Overleaf | 🟡 stub |
+
+✅ funciona · 🟡 stub, se puede implementar ya · ⛔ bloqueado por una decisión del grupo
 
 Orden de las fases: `matrix_smoke.yaml` (¿funciona todo?) → `matrix_exploracion.yaml` (elegir finalistas) → `matrix_confirmacion.yaml` (resultados del artículo).
+
+### ¿Dónde están los algoritmos de detección?
+
+Todos están en `src/anonlogs/detection/` y comparten la interfaz `fit` / `score` / `predict` definida en `src/anonlogs/detection/base.py`.
+
+| Algoritmo | Código | Se configura en `configs/experiment.yaml` | Estado |
+|---|---|---|---|
+| Isolation Forest | `src/anonlogs/detection/isolation_forest.py` | `detectors.isolation_forest` | ✅ |
+| SSIF (IF entrenado solo con normales) | `src/anonlogs/detection/ssif.py` | `detectors.ssif` | ✅ |
+| Reglas con umbral | `src/anonlogs/detection/threshold.py` | `detectors.umbral` | 🟡 stub |
+
+Las reglas que miden (fallos por IP, por usuario, etc.) se calculan en `src/anonlogs/features.py`. El registro que conecta cada nombre de la matriz con su clase está en `src/anonlogs/detection/__init__.py`. Más detalle en [`docs/estado_implementacion.md`](docs/estado_implementacion.md#dónde-están-los-algoritmos-de-detección).
 
 ## 7. Convenciones
 

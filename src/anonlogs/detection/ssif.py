@@ -1,34 +1,41 @@
-"""SSIF: variante semisupervisada de Isolation Forest (pendiente de elegir).
+"""SSIF: Isolation Forest semisupervisado, variante (a) (decisión D5).
 
-TODO (decisión D5, ``experiment.yaml → detectors.ssif.variant``):
+Variante implementada (``if_entrenado_en_normales``): el mismo Isolation Forest,
+pero entrenado solo con las unidades etiquetadas como normales dentro de la parte
+de entrenamiento temporal. Así el bosque aprende únicamente el comportamiento
+normal y los ataques quedan más aislados.
 
-(a) ``if_entrenado_en_normales``: Isolation Forest entrenado solo con las unidades
-    etiquetadas como normales en el Ground Truth, dentro de la parte de
-    entrenamiento temporal. Simple y reproducible; usa las etiquetas solo para filtrar.
-(b) ``ssif_literatura``: implementar un SSIF publicado que usa etiquetas en la
-    construcción de los árboles. Más fiel al término, pero hay que elegir y citar
-    el paper (en Mendeley) y validar la implementación.
+Trabajo futuro (opción b, ``ssif_literatura``): un SSIF publicado que usa las
+etiquetas al construir los árboles. Si se hace, irá como un detector nuevo en el
+registro, sin reemplazar este.
 
-En ambos casos ``uses_labels = True``: el runner solo le entrega etiquetas de
-entrenamiento, y en datasets sin Ground Truth (Loghub) no se ejecuta.
+Como necesita etiquetas, no aplica a datasets sin Ground Truth (Loghub): el runner
+debe omitir esos runs.
 """
 
-from anonlogs.detection.base import Detector
+import numpy as np
+
+from anonlogs.detection.isolation_forest import IsolationForestDetector
 
 
-class SSIFDetector(Detector):
-    """Stub con la interfaz común; la variante se elige en la configuración."""
+class SSIFDetector(IsolationForestDetector):
+    """Isolation Forest entrenado solo con las unidades normales; score y predict se heredan."""
 
     uses_labels = True
 
     def fit(self, X, y=None):
-        """Entrena con la variante configurada; exige ``y``."""
-        raise NotImplementedError
+        """Entrena con las filas donde ``y == 0``.
 
-    def score(self, X):
-        """Score continuo de anomalía (más alto = más anómalo)."""
-        raise NotImplementedError
-
-    def predict(self, X):
-        """Predicción binaria 1/0."""
-        raise NotImplementedError
+        Raises:
+            ValueError: si no se pasan etiquetas o si no hay ninguna unidad normal.
+        """
+        if y is None:
+            raise ValueError("SSIF necesita etiquetas de entrenamiento (y); no aplica a datasets sin Ground Truth.")
+        normal = np.asarray(y) == 0
+        if not normal.any():
+            raise ValueError("SSIF: la parte de entrenamiento no tiene unidades normales.")
+        # iloc filtra por posición: no depende de que el índice del DataFrame coincida con y.
+        X_normal = X.iloc[normal] if hasattr(X, "iloc") else X[normal]
+        self.model_ = self._new_model().fit(X_normal)
+        self.n_train_normal_ = int(normal.sum())
+        return self
