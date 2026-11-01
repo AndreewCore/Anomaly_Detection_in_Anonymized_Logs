@@ -1,6 +1,6 @@
 # Diseño del experimento
 
-Este documento fija cómo se define y ejecuta cada run. Las secciones marcadas **DECISIÓN PENDIENTE** deben acordarse en grupo antes de implementar `features.py`, `labeling.py` y `splitting.py`. Cuando se decidan, actualiza esta página y `configs/experiment.yaml`, y registra la fecha.
+Este documento fija cómo se define y ejecuta cada run. Las secciones marcadas **DECISIÓN PENDIENTE** deben acordarse en grupo antes de implementar `features.py`, `labeling.py` y `splitting.py`. El estado de implementación de cada componente está en [`estado_implementacion.md`](estado_implementacion.md). Cuando se decidan, actualiza esta página y `configs/experiment.yaml`, y registra la fecha.
 
 ## 1. Matriz de experimentos
 
@@ -82,11 +82,11 @@ Una unidad se etiqueta como ataque si:
 - Prevención: los escenarios de `lab/scenarios/` reparten el ataque en varias ráfagas a lo largo de la captura (`bursts`).
 - *Pendiente:* valor final de `train_fraction`, y qué hacer con Loghub (no tiene etiquetas y no se verifica el mínimo).
 
-## 6. Detectores — D5 pendiente para SSIF
+## 6. Detectores
 
 - **Interfaz común** `Detector`: `fit(X, y=None)`, `score(X)` y `predict(X)`. Un score más alto significa más anómalo.
 - **isolation_forest:** usa `n_estimators`, `max_samples` y `contamination` de `experiment.yaml`.
-- **ssif:** elegir entre (a) IF entrenado solo con unidades normales, o (b) un SSIF de la literatura. Ver el docstring de `detection/ssif.py`. Como necesita etiquetas, no aplica a `loghub_openssh`, y esos runs se marcan como omitidos.
+- **ssif — D5 tomada (2026-11-01): variante (a)**, Isolation Forest entrenado solo con las unidades normales de la parte de entrenamiento temporal. Usa los mismos hiperparámetros que IF (`detectors.ssif`). La opción (b), un SSIF de la literatura, queda como posible detector adicional futuro (`ssif_literatura`), sin reemplazar a este. Como necesita etiquetas, no aplica a `loghub_openssh`, y esos runs se marcan como omitidos.
 - **umbral:** baseline determinista. Su score es `max(feature / umbral)`.
 
 ## 7. Métricas por run
@@ -110,4 +110,4 @@ Una unidad se etiqueta como ataque si:
 | D2 | Regla de etiquetado | pendiente | |
 | D3 | Pares (tratamiento, campo) válidos | tomada | 2026-11-01 |
 | D4 | Partición temporal y fallo sin ataques en prueba | tomada (detalles pendientes) | 2026-11-01 |
-| D5 | Variante de SSIF | pendiente | |
+| D5 | Variante de SSIF: (a) IF entrenado en normales | tomada | 2026-11-01 |
