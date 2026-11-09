@@ -73,19 +73,35 @@ Cada carpeta tiene su propio `README.md` que dice qué va ahí y qué no.
                                 └──────────────┘ sincroniza └────────────────────────────────┘
 ```
 
-### Sincronizar `results/runs/` con Drive
+### Sincronizar datos con Drive (`scripts/sync_drive.sh`)
 
-`results/runs/` no va a git porque pesa demasiado. Se comparte por Drive.
+Las capturas, los datasets y los `results/runs/` no van a git (pesan y traen
+IPs/usuarios reales). Se comparten por Drive con `rclone`, que nunca borra en el
+destino: como cada captura y cada `run_id` llevan nombre único, varios integrantes
+suben sin pisarse.
 
-- **Por consola (recomendado):** instala `rclone` (`sudo pacman -S rclone`) y configura un remoto de Drive una vez con `rclone config` (por ejemplo, con el nombre `drive`). Luego:
-  ```bash
-  rclone copy results/runs drive:<carpeta-del-grupo>/results/runs --progress   # subir
-  rclone copy drive:<carpeta-del-grupo>/results/runs results/runs --progress   # bajar
-  ```
-  `copy` no borra nada en el destino. Como cada `run_id` es único, varios integrantes pueden subir sin pisarse.
-- **Sin consola:** comprime `results/runs/` en un `.zip` con fecha y tu nombre, y súbelo a la carpeta `results/runs/` de Drive.
+1. Instala y configura el remoto una sola vez:
+   ```bash
+   sudo pacman -S rclone
+   rclone config          # crea un remoto de Drive, p. ej. llamado "drive"
+   ```
+2. Pon el remoto y la carpeta del grupo en `.env`:
+   ```
+   DRIVE_REMOTE=drive
+   DRIVE_FOLDER=AnonLogs
+   ```
+3. Sube o baja:
+   ```bash
+   scripts/sync_drive.sh push all              # sube capturas + datos + resultados
+   scripts/sync_drive.sh push capturas         # solo lab/output/
+   scripts/sync_drive.sh pull resultados       # baja results/runs y results/sessions
+   scripts/sync_drive.sh push all --dry-run    # muestra qué haría, sin tocar nada
+   ```
 
-Cualquier integrante puede reconstruir todas las tablas a partir de los runs con `python scripts/05_build_tables.py --phase <fase>`.
+Las subcarpetas de capturas y de sesiones ya llevan en el nombre la fecha, la hora,
+el usuario, el nº de eventos y la duración, así que en Drive quedan ordenadas y
+rastreables. Cualquier integrante reconstruye las tablas desde los runs con
+`python scripts/05_build_tables.py --phase <fase>`.
 
 ## 5. Instalación
 

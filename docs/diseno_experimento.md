@@ -75,6 +75,29 @@ Una unidad se etiqueta como ataque si:
 
 `any` maximiza el recall posible, pero etiqueta como ataque ventanas casi totalmente normales. `fraction` es más estricta, y el umbral debe justificarse.
 
+### Revisión humana del Ground Truth (semisupervisión)
+
+El GT automático lo escribe `anomalia.c` (una fila por intento). `scripts/01_parse_logs.py`:
+
+1. Enlaza cada evento por `src_ip` + ventana de tiempo, y propaga la marca a toda
+   la conexión sshd (mismo `pid`), para cubrir el par `Invalid user`/`Failed
+   password` y el cierre de conexión.
+2. Genera `data/interim/<dataset>/dudosos.csv` con los casos ambiguos: logins
+   **aceptados** desde IPs de atacantes, fallos de atacantes fuera de ráfaga, y
+   fallos desde IPs legítimas (errores de tipeo).
+
+La persona revisa `dudosos.csv` y escribe sus decisiones en
+`data/ground_truth/<dataset>_revisiones.csv` (`event_id,is_attack,motivo,revisor,fecha`).
+Al re-ejecutar la etapa 1, esas filas sobrescriben la etiqueta automática y quedan
+marcadas con `fuente = revision`. Esta es la **consideración humana** que alimenta
+tanto a SSIF (que entrena solo con los normales) como al umbral calibrado y a las
+métricas. Las etiquetas viajan por `event_id`, así que son idénticas en todas las
+versiones anonimizadas.
+
+Los segmentos de una captura se concatenan en una **línea de tiempo virtual**
+(`timestamp`), conservando el tiempo real (`timestamp_real`); el enlace del GT usa
+el tiempo real, y las ventanas y la partición temporal usan la virtual.
+
 ## 5. Partición entrenamiento/prueba — decisión D4 (tomada; detalles pendientes)
 
 - La partición es temporal: entrena el primer `train_fraction` del rango y se evalúa el resto. Todo detector que use etiquetas (`ssif`) recibe solo etiquetas de entrenamiento. Las métricas se calculan siempre sobre la parte de prueba.
