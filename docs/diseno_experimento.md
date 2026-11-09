@@ -46,9 +46,9 @@ Un tratamiento se aplica a los campos indicados. El campo no tratado queda **ori
 
 *Abierto:* si el grupo quiere un híbrido (p. ej. IP /24 + usuario seudonimizado), se agrega como **tratamiento nuevo con nombre propio** (`hibrido_gen_seud`), no como un valor de campo.
 
-## 3. Unidad de análisis — DECISIÓN PENDIENTE D1
+## 3. Unidad de análisis — DECISIÓN D1 (tomada: eje de la matriz, 2026-11-09)
 
-Es la decisión más importante: define qué es una fila para el detector.
+Es la decisión más importante: define qué es una fila para el detector. En vez de fijar una sola, **se prueban las tres como eje de la matriz** (`units` en `matrix_*.yaml`), para elegir la finalista con datos y reportar el contraste. La tabla de cómo se calcula cada regla por unidad está abajo.
 
 | Opción | Fila = | Ventaja | Riesgo |
 |---|---|---|---|
@@ -62,9 +62,20 @@ Las opciones `ventana_ip` y `ventana_usuario` hacen que el resultado dependa del
 - **Seudonimizar:** las IPs siguen siendo distintas entre sí. Las features por entidad casi no cambian.
 - **Generalizar a /24:** un ataque distribuido desde la misma subred se fusiona en una sola entidad. En el laboratorio, `attacker_1` y `attacker_2` comparten 172.28.1.0/24 y `attacker_3` no, para observar ambos casos.
 
-Hay que decidir además: si la unidad es (ventana, IP), ¿qué pasa con `fallos_por_usuario`? Se calcula a nivel de ventana y se repite en cada fila, o se excluye de ese conjunto de reglas.
+### Cómo se calcula cada regla por unidad (implementado en `features.py`)
 
-## 4. Etiquetado de unidades — DECISIÓN PENDIENTE D2
+| regla | `ventana` | `ventana_ip` | `ventana_usuario` |
+|---|---|---|---|
+| fallos_por_ip | máx. sobre IPs | de esa IP | máx. sobre las IPs que tocaron al usuario |
+| fallos_por_usuario | máx. sobre usuarios | máx. sobre los usuarios que tocó la IP | de ese usuario |
+| usuarios_unicos_por_ip | máx. sobre IPs | de esa IP | máx. sobre esas IPs |
+| fallos_por_ventana | total | total (contexto, se repite) | total (contexto, se repite) |
+
+Así, cuando la unidad es (ventana, IP), `fallos_por_usuario` no se excluye: se toma
+el máximo sobre los usuarios que esa IP atacó, y `fallos_por_ventana` se repite como
+contexto. Cada fila guarda además sus `event_id`, que el etiquetado necesita.
+
+## 4. Etiquetado de unidades — DECISIÓN D2 (tomada: eje de la matriz, 2026-11-09)
 
 Las etiquetas se asocian **por `event_id`**, nunca por IP o usuario. Se calculan una vez sobre los logs originales y viajan sin cambios a todas las versiones anonimizadas.
 
@@ -73,7 +84,30 @@ Una unidad se etiqueta como ataque si:
 - `any`: contiene **al menos un** evento de ataque; o
 - `fraction`: la fracción de eventos de ataque es ≥ `min_fraction`.
 
-`any` maximiza el recall posible, pero etiqueta como ataque ventanas casi totalmente normales. `fraction` es más estricta, y el umbral debe justificarse.
+`any` maximiza el recall posible, pero etiqueta como ataque ventanas casi totalmente normales. `fraction` es más estricta. **Se prueban ambas como eje** (`labeling` en `matrix_*.yaml`: `any` y `frac50` con `min_fraction: 0.5`).
+
+### Revisión humana del Ground Truth (semisupervisión)
+
+El GT automático lo escribe `anomalia.c` (una fila por intento). `scripts/01_parse_logs.py`:
+
+1. Enlaza cada evento por `src_ip` + ventana de tiempo, y propaga la marca a toda
+   la conexión sshd (mismo `pid`), para cubrir el par `Invalid user`/`Failed
+   password` y el cierre de conexión.
+2. Genera `data/interim/<dataset>/dudosos.csv` con los casos ambiguos: logins
+   **aceptados** desde IPs de atacantes, fallos de atacantes fuera de ráfaga, y
+   fallos desde IPs legítimas (errores de tipeo).
+
+La persona revisa `dudosos.csv` y escribe sus decisiones en
+`data/ground_truth/<dataset>_revisiones.csv` (`event_id,is_attack,motivo,revisor,fecha`).
+Al re-ejecutar la etapa 1, esas filas sobrescriben la etiqueta automática y quedan
+marcadas con `fuente = revision`. Esta es la **consideración humana** que alimenta
+tanto a SSIF (que entrena solo con los normales) como al umbral calibrado y a las
+métricas. Las etiquetas viajan por `event_id`, así que son idénticas en todas las
+versiones anonimizadas.
+
+Los segmentos de una captura se concatenan en una **línea de tiempo virtual**
+(`timestamp`), conservando el tiempo real (`timestamp_real`); el enlace del GT usa
+el tiempo real, y las ventanas y la partición temporal usan la virtual.
 
 ## 5. Partición entrenamiento/prueba — decisión D4 (tomada; detalles pendientes)
 
@@ -87,7 +121,8 @@ Una unidad se etiqueta como ataque si:
 - **Interfaz común** `Detector`: `fit(X, y=None)`, `score(X)` y `predict(X)`. Un score más alto significa más anómalo.
 - **isolation_forest:** usa `n_estimators`, `max_samples` y `contamination` de `experiment.yaml`.
 - **ssif — D5 tomada (2026-11-01): variante (a)**, Isolation Forest entrenado solo con las unidades normales de la parte de entrenamiento temporal. Usa los mismos hiperparámetros que IF (`detectors.ssif`). La opción (b), un SSIF de la literatura, queda como posible detector adicional futuro (`ssif_literatura`), sin reemplazar a este. Como necesita etiquetas, no aplica a `loghub_openssh`, y esos runs se marcan como omitidos.
-- **umbral:** baseline determinista. Su score es `max(feature / umbral)`.
+- **umbral:** baseline determinista con umbrales fijados por el equipo (`detectors.umbral`). Su score es `max(feature / umbral)`.
+- **umbral_calibrado:** mismo baseline, pero el umbral de cada regla es el percentil p99 de las unidades normales de entrenamiento (`detectors.umbral_calibrado`). Usa etiquetas, así que es semisupervisado y se omite en datasets sin GT.
 
 ## 7. Métricas por run
 
@@ -106,8 +141,8 @@ Una unidad se etiqueta como ataque si:
 
 | ID | Tema | Estado | Fecha |
 |---|---|---|---|
-| D1 | Unidad de análisis | pendiente | |
-| D2 | Regla de etiquetado | pendiente | |
+| D1 | Unidad de análisis | tomada: se prueban las tres como eje | 2026-11-09 |
+| D2 | Regla de etiquetado | tomada: se prueban any y frac50 como eje | 2026-11-09 |
 | D3 | Pares (tratamiento, campo) válidos | tomada | 2026-11-01 |
 | D4 | Partición temporal y fallo sin ataques en prueba | tomada (detalles pendientes) | 2026-11-01 |
 | D5 | Variante de SSIF: (a) IF entrenado en normales | tomada | 2026-11-01 |

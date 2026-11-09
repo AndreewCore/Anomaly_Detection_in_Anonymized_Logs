@@ -18,15 +18,8 @@ datasets:
   lab_spraying:      {source: lab,    path: raw/lab/spraying,     ground_truth: ground_truth/lab_spraying.csv}
   loghub_openssh:    {source: loghub, path: raw/loghub,           ground_truth: null}   # sin etiquetas
 
-# DECISIÓN D1: unidad de análisis (qué es una fila para el detector).
-# Opciones: ventana | ventana_ip | ventana_usuario
-unit_of_analysis: null
-
-# DECISIÓN D2: cuándo una unidad se etiqueta como ataque.
-# Opciones: any (basta un evento de ataque) | fraction (fracción de eventos de ataque >= min_fraction)
-labeling:
-  rule: null
-  min_fraction: null
+# D1 (unidad de análisis) y D2 (regla de etiquetado) se prueban como ejes de la
+# matriz (ver configs/matrix_*.yaml → units, labeling), para justificarlas con datos.
 
 anonymization:
   suppression_token: "<SUPRIMIDO>"
@@ -51,11 +44,16 @@ detectors:
     max_samples: auto
     contamination: auto
   umbral:
-    # Umbral por regla: la unidad es anómala si alguna regla activa supera su umbral.
+    # Umbral por regla (criterio experto del equipo): la unidad es anómala si
+    # alguna regla activa supera su umbral. Justificación en docs/diseno_experimento.md §6.
     fallos_por_ip: 10
     fallos_por_usuario: 10
     usuarios_unicos_por_ip: 5
     fallos_por_ventana: 30
+  umbral_calibrado:
+    # Mismo baseline, pero el umbral de cada regla sale del percentil de las
+    # unidades normales de entrenamiento (menos arbitrario que el fijo).
+    percentile: 99
 
 stats:
   test: wilcoxon_pareado           # pareado por semilla

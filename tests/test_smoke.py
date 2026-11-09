@@ -20,6 +20,6 @@ def test_import(name):
 
 
 def test_registry_has_all_detectors():
-    """Los tres detectores de la matriz están registrados."""
+    """Los cuatro detectores de la matriz están registrados."""
     from anonlogs.detection import REGISTRY
-    assert set(REGISTRY) == {"isolation_forest", "ssif", "umbral"}
+    assert set(REGISTRY) == {"isolation_forest", "ssif", "umbral", "umbral_calibrado"}

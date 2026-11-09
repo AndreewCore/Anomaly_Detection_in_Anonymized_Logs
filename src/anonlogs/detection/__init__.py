@@ -8,11 +8,13 @@ from anonlogs.detection.base import Detector
 from anonlogs.detection.isolation_forest import IsolationForestDetector
 from anonlogs.detection.ssif import SSIFDetector
 from anonlogs.detection.threshold import ThresholdDetector
+from anonlogs.detection.threshold_calibrated import CalibratedThresholdDetector
 
 REGISTRY: dict[str, type[Detector]] = {
     "isolation_forest": IsolationForestDetector,
     "ssif": SSIFDetector,
     "umbral": ThresholdDetector,
+    "umbral_calibrado": CalibratedThresholdDetector,
 }
 
 
