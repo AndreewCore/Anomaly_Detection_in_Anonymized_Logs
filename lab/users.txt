@@ -1,0 +1,22 @@
+# Usuarios legítimos de la víctima (uno por línea). El entrypoint los crea al
+# arrancar. Los clientes legítimos se reparten subconjuntos de esta lista.
+alice
+bob
+carol
+dave
+erin
+frank
+grace
+heidi
+ivan
+judy
+karl
+liam
+mallory
+nolan
+olivia
+peggy
+quinn
+rupert
+sybil
+trent

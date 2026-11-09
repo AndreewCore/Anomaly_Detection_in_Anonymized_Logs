@@ -48,7 +48,7 @@ El detalle por archivo y los problemas conocidos están en [`docs/estado_impleme
 ## 3. Estructura del repositorio
 
 ```
-├── lab/            Laboratorio Docker (víctima sshd, atacantes, tráfico legítimo, escenarios). Se ejecuta en Windows
+├── lab/            Laboratorio Docker (víctima sshd, atacantes, tráfico legítimo, escenarios). Se ejecuta en Linux
 ├── tools/c/        Herramientas en C (anomalia.c, agente.c) + Makefile
 ├── configs/        YAML del experimento: parámetros fijos y matrices (smoke, exploración, confirmación)
 ├── data/           Datos descargados de Drive (ignorados por git): raw, ground_truth, interim, processed, features
@@ -65,7 +65,7 @@ Cada carpeta tiene su propio `README.md` que dice qué va ahí y qué no.
 ## 4. Flujo de datos entre herramientas
 
 ```
- Windows + Docker (lab/)          Google Drive                Laptop Linux (este repo)                  Overleaf
+ Linux + Docker (lab/)            Google Drive                Laptop Linux (este repo)                  Overleaf
 ┌──────────────────────┐  sube  ┌──────────────┐  descarga  ┌────────────────────────────────┐  sube  ┌──────────┐
 │ auth.log + Ground    │──────▶ │ datasets/    │──────────▶ │ data/raw/ → scripts 01–04 →    │──────▶ │ tablas y │
 │ Truth por escenario  │        │ ground_truth/│            │ results/runs/ → 05–06 →        │        │ figuras  │
@@ -109,18 +109,29 @@ make -C tools/c          # genera tools/c/agente y tools/c/anomalia
 make -C tools/c clean    # borra los binarios
 ```
 
-### 5.3 Laboratorio (Windows con Docker Desktop)
+### 5.3 Laboratorio (Linux con Docker Engine)
 
-1. Instala Docker Desktop y clona el repo. El archivo `.gitattributes` fuerza finales de línea LF: si un `.sh` falla con `\r`, vuelve a clonar.
-2. Desde la carpeta `lab/`, levanta un escenario:
-   ```powershell
-   docker compose --profile concentrado up --build
-   ```
-   Perfiles disponibles: `concentrado`, `multi_cuenta`, `distribuido`, `spraying`.
-3. Al terminar, ejecuta `docker compose --profile concentrado down`.
-4. El log queda en `lab/output/victim/auth.log`. Súbelo a Drive en `datasets/raw/lab/<escenario>/`, junto con su Ground Truth.
+```bash
+sudo pacman -S docker docker-compose docker-buildx
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER      # luego cierra sesión y vuelve a entrar
+```
 
-> Hoy los atacantes solo pueden ejecutar el modo básico de `anomalia.c`. Ver [`docs/pendientes.md`](docs/pendientes.md).
+El laboratorio no se levanta a mano: `lab/capture.sh` orquesta una captura de
+principio a fin (fija la semilla, espera a que termine la carga y guarda la salida
+con un nombre descriptivo).
+
+```bash
+lab/capture.sh concentrado 1               # segmento 1 del escenario
+lab/capture.sh concentrado 1 --minutes 5   # captura corta de prueba
+```
+
+Una captura de 90 min son **3 segmentos de 30 min** que pueden correrse en días
+distintos; el parser los concatena como una sola línea de tiempo. Perfiles:
+`concentrado`, `multi_cuenta`, `distribuido`, `spraying`. Mientras corre:
+`tail -f lab/output/_actual/victim/auth.log`. El detalle está en
+[`lab/README.md`](lab/README.md). También funciona en Windows con Docker Desktop
+usando los mismos comandos de `docker compose`.
 
 ## 6. Orden de ejecución
 
