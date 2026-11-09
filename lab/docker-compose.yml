@@ -1,20 +1,49 @@
-# Laboratorio de fuerza bruta SSH. Uso (desde lab/):
-#   docker compose --profile concentrado up --build
+# Laboratorio de fuerza bruta SSH (se ejecuta en Linux con Docker Engine).
+# No se levanta a mano: usa lab/capture.sh, que fija SEGMENT/SEED y mueve la salida.
+#   lab/capture.sh concentrado 1
 # Perfiles: concentrado | multi_cuenta | distribuido | spraying
 #
-# La red es /16 para que los atacantes caigan en subredes /24 distintas a propósito:
-# attacker_1 y attacker_2 comparten 172.28.1.0/24 (la generalización /24 los fusiona),
-# attacker_3 está en 172.28.2.0/24 (sigue separado). Ese contraste es parte del experimento.
+# La red es /16 para que los nodos caigan en subredes /24 distintas a propósito:
+#   - oficinas legítimas en 172.28.10/11/12.0/24,
+#   - attacker_1 y attacker_2 comparten 172.28.1.0/24 con un cliente legítimo
+#     (la generalización /24 los fusiona), attacker_3 está solo en 172.28.2.0/24.
+# Ese contraste es parte del experimento (ver docs/diseno_experimento.md, D1).
 
 name: anonlogs-lab
 
+# --- Plantillas reutilizables -------------------------------------------------
+
+# Cliente legítimo: mismo build, cambian IP, semilla y subconjunto de usuarios.
+x-legit: &legit
+  build:
+    context: ./legit_traffic
+  environment: &legit-env
+    TARGET_HOST: victim
+    LEGIT_PASSWORD: ${LEGIT_PASSWORD:-cambiar_en_lab}
+    SEGMENT_MINUTES: ${SEGMENT_MINUTES:-30}
+    SEGMENT: ${SEGMENT:-1}
+    TYPO_RATE: ${TYPO_RATE:-0.05}
+  volumes:
+    - ./output/_actual/legit:/out       # bitácora de apoyo (no es etiqueta)
+  depends_on:
+    - victim
+
+# Atacante: lee usuarios/intentos de variables del escenario y escribe el GT.
 x-attacker: &attacker
   build:
-    context: ..                       # raíz del repo, para poder copiar tools/c/
+    context: ..                         # raíz del repo, para copiar tools/c/
     dockerfile: lab/attacker/Dockerfile
-  environment:
+  environment: &attacker-env
     TARGET_HOST: victim
-    START_DELAY: "10"
+    SCENARIO: ${SCENARIO:-concentrado}
+    SEGMENT: ${SEGMENT:-1}
+    SEGMENT_MINUTES: ${SEGMENT_MINUTES:-30}
+    BURSTS_PER_SEGMENT: ${BURSTS_PER_SEGMENT:-2}
+    SEED_BASE: ${SEED_BASE:-0}
+    PAUSE_MS: ${PAUSE_MS:-800}
+    START_DELAY: ${START_DELAY:-8}
+  volumes:
+    - ./output/_actual/gt:/gt           # el GT de cada atacante cae aquí
   depends_on:
     - victim
 
@@ -25,47 +54,116 @@ services:
     hostname: victim
     environment:
       TZ: UTC
-      LEGIT_USERS: "alice bob carol"
       LEGIT_PASSWORD: ${LEGIT_PASSWORD:-cambiar_en_lab}
     volumes:
-      - ./output/victim:/var/log      # auth.log queda en lab/output/victim/auth.log
+      - ./output/_actual/victim:/var/log   # auth.log queda aquí
+      - ./users.txt:/etc/legit_users.txt:ro
     networks:
       labnet:
         ipv4_address: 172.28.0.10
 
-  legit_traffic:
-    build:
-      context: ./legit_traffic
+  # --- Clientes legítimos (tráfico normal variado) --------------------------
+  # Oficina A — 172.28.10.0/24
+  legit_1:
+    <<: *legit
     environment:
-      TARGET_HOST: victim
-      LEGIT_USERS: "alice bob carol"
-      LEGIT_PASSWORD: ${LEGIT_PASSWORD:-cambiar_en_lab}
-    depends_on:
-      - victim
-    networks:
-      labnet:
-        ipv4_address: 172.28.0.50
+      <<: *legit-env
+      CLIENT_ID: legit_1
+      LEGIT_USERS: "alice,bob,carol,dave"
+      SEED: "11"
+    networks: {labnet: {ipv4_address: 172.28.10.11}}
+  legit_2:
+    <<: *legit
+    environment:
+      <<: *legit-env
+      CLIENT_ID: legit_2
+      LEGIT_USERS: "erin,frank,grace"
+      SEED: "12"
+    networks: {labnet: {ipv4_address: 172.28.10.12}}
+  legit_3:
+    <<: *legit
+    environment:
+      <<: *legit-env
+      CLIENT_ID: legit_3
+      LEGIT_USERS: "heidi,ivan,judy"
+      SEED: "13"
+    networks: {labnet: {ipv4_address: 172.28.10.13}}
+  # Oficina B — 172.28.11.0/24
+  legit_4:
+    <<: *legit
+    environment:
+      <<: *legit-env
+      CLIENT_ID: legit_4
+      LEGIT_USERS: "karl,liam,mallory"
+      SEED: "14"
+    networks: {labnet: {ipv4_address: 172.28.11.11}}
+  legit_5:
+    <<: *legit
+    environment:
+      <<: *legit-env
+      CLIENT_ID: legit_5
+      LEGIT_USERS: "nolan,olivia,peggy"
+      SEED: "15"
+    networks: {labnet: {ipv4_address: 172.28.11.12}}
+  # VPN — 172.28.12.0/24: usa cuentas de varias oficinas (acceso remoto)
+  legit_6:
+    <<: *legit
+    environment:
+      <<: *legit-env
+      CLIENT_ID: legit_6
+      LEGIT_USERS: "quinn,rupert,sybil,trent"
+      SEED: "16"
+    networks: {labnet: {ipv4_address: 172.28.12.11}}
+  # Comparte /24 con attacker_1/attacker_2 (la generalización /24 los fusiona)
+  legit_7:
+    <<: *legit
+    environment:
+      <<: *legit-env
+      CLIENT_ID: legit_7
+      LEGIT_USERS: "alice,erin,karl"
+      SEED: "17"
+    networks: {labnet: {ipv4_address: 172.28.1.51}}
+  # Comparte /24 con attacker_3
+  legit_8:
+    <<: *legit
+    environment:
+      <<: *legit-env
+      CLIENT_ID: legit_8
+      LEGIT_USERS: "bob,grace,nolan"
+      SEED: "18"
+    networks: {labnet: {ipv4_address: 172.28.2.51}}
 
+  # --- Atacantes ------------------------------------------------------------
   attacker_1:
     <<: *attacker
     profiles: [concentrado, multi_cuenta, distribuido, spraying]
-    networks:
-      labnet:
-        ipv4_address: 172.28.1.101
-
+    environment:
+      <<: *attacker-env
+      ATTACKER_NAME: attacker_1
+      SRC_IP: 172.28.1.101
+      ATTACK_USERS: ${A1_USERS:-admin}
+      ATTACK_N: ${A1_N:-50}
+    networks: {labnet: {ipv4_address: 172.28.1.101}}
   attacker_2:
     <<: *attacker
     profiles: [distribuido, spraying]
-    networks:
-      labnet:
-        ipv4_address: 172.28.1.102
-
+    environment:
+      <<: *attacker-env
+      ATTACKER_NAME: attacker_2
+      SRC_IP: 172.28.1.102
+      ATTACK_USERS: ${A2_USERS:-admin}
+      ATTACK_N: ${A2_N:-50}
+    networks: {labnet: {ipv4_address: 172.28.1.102}}
   attacker_3:
     <<: *attacker
     profiles: [distribuido, spraying]
-    networks:
-      labnet:
-        ipv4_address: 172.28.2.101
+    environment:
+      <<: *attacker-env
+      ATTACKER_NAME: attacker_3
+      SRC_IP: 172.28.2.101
+      ATTACK_USERS: ${A3_USERS:-admin}
+      ATTACK_N: ${A3_N:-50}
+    networks: {labnet: {ipv4_address: 172.28.2.101}}
 
 networks:
   labnet:

@@ -1,11 +1,29 @@
-# Pendientes — `tools/c/anomalia.c`
+# Pendientes — laboratorio
 
-Mejoras necesarias para usar `anomalia.c` en el experimento. Ninguna está implementada todavía.
+Estado de las mejoras de `tools/c/anomalia.c` y del laboratorio.
 
-- [ ] **Ground Truth en CSV.** Escribir una fila por ataque con escenario, timestamp de inicio y fin, IP de origen y usuarios objetivo. Debe ser independiente de los logs.
-- [ ] **Bug del modo `ftp`.** Ignora el argumento `host` y siempre ataca `localhost` (`ftp://localhost/` en `intento_ftp`).
-- [ ] **Una sola IP de origen.** Los escenarios *distribuido* y *spraying* necesitan varios contenedores atacantes con IPs distintas (ya definidos en `lab/docker-compose.yml`) o un orquestador de escenarios.
-- [ ] **Parámetros por argumento.** Hoy el número de intentos (`INTENTOS`), la pausa (`PAUSA`) y la lista de credenciales están fijos en el código.
-- [ ] **Tráfico legítimo.** Generar logins exitosos para que existan negativos reales (stub en `lab/legit_traffic/`).
-- [ ] **Ráfagas repartidas en el tiempo.** El ataque debe repartirse a lo largo de la captura para que la partición temporal deje ataques en la parte de prueba (decisión D4 en `diseno_experimento.md`).
-- [ ] **Modos `cpu` y `ram`.** No son relevantes para esta investigación (venían de SIEMLite). Se pueden quitar o ignorar.
+## Hecho (2026-11-09)
+
+- [x] **Ground Truth en CSV.** `anomalia ssh` escribe una fila por intento
+      (`scenario,segment,burst_id,attacker,src_ip,user,ts_start,ts_end`) con `-g`.
+      Es independiente de los logs.
+- [x] **Parámetros por argumento.** `-u -w -n -p -d -b -s` controlan usuarios,
+      claves, intentos, pausa, duración, ráfagas y semilla (ver `tools/c/README.md`).
+- [x] **Varias IPs de origen.** `distribuido` y `spraying` usan `attacker_1/2/3`
+      con IPs distintas; cada uno pasa su `-I`.
+- [x] **Ráfagas repartidas en el tiempo.** `-d`/`-b` distribuyen el ataque a lo
+      largo del segmento (decisión D4).
+- [x] **Tráfico legítimo.** `lab/legit_traffic/generate_legit.sh` hace logins
+      exitosos con intervalos exponenciales y errores de tipeo ocasionales.
+- [x] **Bug del modo `ftp`.** Ya usa el `host` recibido en vez de `localhost`.
+
+## Pendiente
+
+- [ ] **Primera corrida real del laboratorio.** El `docker-compose.yml` y los
+      scripts nunca se han ejecutado de punta a punta; falta una captura real
+      (requiere `docker-compose` instalado).
+- [ ] **Diccionarios de claves más largos.** Con `-n 50` y el diccionario interno
+      de 6 claves, las claves se repiten en ciclo. Si se quiere unicidad real,
+      pasar `-w` con una lista larga desde el escenario.
+- [ ] **Modos `cpu` y `ram`.** Heredados de SIEMLite, fuera del experimento. Se
+      pueden quitar en una limpieza futura.
