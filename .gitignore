@@ -36,6 +36,10 @@ lab/output/*
 results/runs/*
 !results/runs/.gitkeep
 
+# --- Sesiones de ejecución: resumen por corrida, se sincronizan con Drive ---
+results/sessions/*
+!results/sessions/.gitkeep
+
 # --- Editor / SO ---
 .vscode/
 .idea/

@@ -20,9 +20,15 @@ treatments:
 rule_sets:
   todas: [fallos_por_ip, fallos_por_usuario, usuarios_unicos_por_ip, fallos_por_ventana]   # TODO finalistas
 
+# D1 y D2 como ejes de la matriz (se prueban para justificar la elección).
+units: [ventana, ventana_ip, ventana_usuario]
+labeling:
+  any:    {rule: any}
+  frac50: {rule: fraction, min_fraction: 0.5}
+
 window_seconds: [300]              # TODO finalista
 
-detectors: [isolation_forest, ssif, umbral]
+detectors: [isolation_forest, ssif, umbral, umbral_calibrado]
 
 seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
         20, 21, 22, 23, 24, 25, 26, 27, 28, 29]

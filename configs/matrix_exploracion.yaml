@@ -24,8 +24,14 @@ rule_sets:
   volumen:         [fallos_por_ventana]
   todas:           [fallos_por_ip, fallos_por_usuario, usuarios_unicos_por_ip, fallos_por_ventana]
 
+# D1 y D2 como ejes de la matriz (se prueban para justificar la elección).
+units: [ventana, ventana_ip, ventana_usuario]
+labeling:
+  any:    {rule: any}
+  frac50: {rule: fraction, min_fraction: 0.5}
+
 window_seconds: [60, 300, 900]
 
-detectors: [isolation_forest, ssif, umbral]
+detectors: [isolation_forest, ssif, umbral, umbral_calibrado]
 
 seeds: [0, 1, 2, 3, 4]

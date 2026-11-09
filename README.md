@@ -144,11 +144,12 @@ Ejecuta todo desde la raíz del repo con el venv activo:
 
 | # | Script | Qué hace | Estado |
 |---|---|---|---|
-| 0 | `python scripts/00_download_loghub.py` | Descarga Loghub OpenSSH a `data/raw/loghub/` | ✅ al mergear el PR #1 |
-| 1 | `python scripts/01_parse_logs.py` | Convierte los logs en tabla y asocia el Ground Truth por `event_id` | 🟡 stub |
-| 2 | `python scripts/02_anonymize.py --matrix <m>` | Genera las versiones anonimizadas | 🟡 stub |
-| 3 | `python scripts/03_build_features.py --matrix <m>` | Calcula las features por ventana | ⛔ espera D1 |
-| 4 | `python scripts/04_run_matrix.py --matrix <m>` | Ejecuta todos los runs (reanudable; `--dry-run` cuenta los runs) | ✅ solo `--dry-run` |
+| 0a | `python scripts/00_download_loghub.py` | Descarga Loghub OpenSSH a `data/raw/loghub/` | ✅ |
+| 0b | `python scripts/00_ingest_lab.py --scenario <e>` | Copia las capturas del lab a `data/raw/lab/` y consolida el GT | ✅ |
+| 1 | `python scripts/01_parse_logs.py` | Convierte los logs en tabla y asocia el Ground Truth por `event_id` | ✅ |
+| 2 | `python scripts/02_anonymize.py --matrix <m>` | Genera las versiones anonimizadas + exposición residual | ✅ |
+| 3 | `python scripts/03_build_features.py --matrix <m>` | Calcula las features por ventana y unidad | ✅ |
+| 4 | `python scripts/04_run_matrix.py --matrix <m>` | Ejecuta todos los runs (reanudable; `--dry-run` cuenta los runs) | ✅ |
 | 5 | `python scripts/05_build_tables.py --phase <f>` | Consolida runs → tablas + Wilcoxon/Holm | 🟡 stub |
 | 6 | `python scripts/06_make_figures.py --phase <f>` | Figuras PDF + PNG para Overleaf | 🟡 stub |
 
@@ -164,7 +165,8 @@ Todos están en `src/anonlogs/detection/` y comparten la interfaz `fit` / `score
 |---|---|---|---|
 | Isolation Forest | `src/anonlogs/detection/isolation_forest.py` | `detectors.isolation_forest` | ✅ |
 | SSIF (IF entrenado solo con normales) | `src/anonlogs/detection/ssif.py` | `detectors.ssif` | ✅ |
-| Reglas con umbral | `src/anonlogs/detection/threshold.py` | `detectors.umbral` | 🟡 stub |
+| Reglas con umbral (fijo) | `src/anonlogs/detection/threshold.py` | `detectors.umbral` | ✅ |
+| Umbral calibrado (p99 de normales) | `src/anonlogs/detection/threshold_calibrated.py` | `detectors.umbral_calibrado` | ✅ |
 
 Las reglas que miden (fallos por IP, por usuario, etc.) se calculan en `src/anonlogs/features.py`. El registro que conecta cada nombre de la matriz con su clase está en `src/anonlogs/detection/__init__.py`. Más detalle en [`docs/estado_implementacion.md`](docs/estado_implementacion.md#dónde-están-los-algoritmos-de-detección).
 

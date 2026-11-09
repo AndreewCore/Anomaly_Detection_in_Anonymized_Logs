@@ -17,8 +17,8 @@ Leyenda:
 | 00b | `00_ingest_lab.py` | ✅ | Copia las capturas a `data/raw/lab/` y consolida el GT por escenario |
 | 01 | `01_parse_logs.py` | ✅ | Parseo + enlace del GT + `dudosos.csv` (2026-11-09) |
 | 02 | `02_anonymize.py` | ✅ | Supresión, HMAC y /24 en columnas y texto + `exposure.json` (2026-11-09) |
-| 03 | `03_build_features.py` | ⛔ D1 | Decidir la unidad de análisis y luego implementar `features.py` |
-| 04 | `04_run_matrix.py` | ✅ solo `--dry-run` | La ejecución real necesita `runner.py`, `features.py`, `labeling.py`, `splitting.py`, `metrics.py` y `exposure.py` |
+| 03 | `03_build_features.py` | ✅ | Features por (dataset, trat, campo, unidad, ventana); unidad como eje (2026-11-09) |
+| 04 | `04_run_matrix.py` | ✅ | Ejecución real + sesión con resumen en results/sessions/ (2026-11-09) |
 | 05 | `05_build_tables.py` | 🟡 | Implementar `reporting/aggregate.py` y `reporting/stats.py` |
 | 06 | `06_make_figures.py` | 🟡 | Implementar `reporting/figures.py` |
 
@@ -30,16 +30,16 @@ Leyenda:
 | Matriz y `run_id` | `src/anonlogs/matrix.py` | ✅ | — |
 | Parseo | `src/anonlogs/parsing.py` | ✅ | RFC 3339 + tradicional, línea de tiempo virtual, GT por conexión, revisiones |
 | Anonimización | `src/anonlogs/anonymization.py` | ✅ | Supresión, HMAC y /24, en columnas y texto libre |
-| Features | `src/anonlogs/features.py` | ⛔ D1 | Unidad de análisis |
-| Etiquetado | `src/anonlogs/labeling.py` | ⛔ D2 | Regla `any` o `fraction` |
-| Partición temporal | `src/anonlogs/splitting.py` | ⛔ D4 | Valor final de `train_fraction` |
-| Runner | `src/anonlogs/runner.py` | 🟡 | `execute_run` y `provenance`. `is_complete` ya funciona |
+| Features | `src/anonlogs/features.py` | ✅ | Reglas por unidad (ventana / ventana_ip / ventana_usuario) |
+| Etiquetado | `src/anonlogs/labeling.py` | ✅ | any / fraction por event_id |
+| Partición temporal | `src/anonlogs/splitting.py` | ✅ | Corte temporal + NoAttacksInTestError |
+| Runner | `src/anonlogs/runner.py` | ✅ | execute_run, provenance y omitidos (sin GT / sin ataques en prueba) |
 | Interfaz de detectores | `src/anonlogs/detection/base.py` | ✅ | — |
 | Registro de detectores | `src/anonlogs/detection/__init__.py` | ✅ | — |
 | Isolation Forest | `src/anonlogs/detection/isolation_forest.py` | ✅ | Probado con datos sintéticos; falta conectarlo vía `runner.py` |
 | SSIF (variante a) | `src/anonlogs/detection/ssif.py` | ✅ | Igual que IF |
-| Reglas con umbral | `src/anonlogs/detection/threshold.py` | 🟡 | `fit`, `score` y `predict` |
-| Métricas | `src/anonlogs/evaluation/metrics.py` | 🟡 | P, R, F1, FPR, matriz de confusión, ROC-AUC y PR-AUC |
+| Reglas con umbral | `src/anonlogs/detection/threshold.py` | ✅ | fijo (`umbral`) + calibrado p99 (`umbral_calibrado`) |
+| Métricas | `src/anonlogs/evaluation/metrics.py` | ✅ | P, R, F1, FPR, confusión, ROC-AUC y PR-AUC |
 | Exposición residual | `src/anonlogs/evaluation/exposure.py` | ✅ | % de usuarios/IPs originales que sobreviven |
 | Tablas | `src/anonlogs/reporting/aggregate.py` | 🟡 | — |
 | Estadística | `src/anonlogs/reporting/stats.py` | 🟡 | Wilcoxon + Holm; umbral aparte |

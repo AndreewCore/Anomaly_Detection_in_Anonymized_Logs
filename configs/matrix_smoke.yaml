@@ -4,14 +4,22 @@ phase: smoke
 datasets: [lab_concentrado]
 
 treatments:
-  - {tratamiento: original,      campo: ninguno}
-  - {tratamiento: seudonimizada, campo: ambos}
+  - {tratamiento: original,        campo: ninguno}
+  - {tratamiento: seudonimizada,   campo: ambos}
+  - {tratamiento: suprimida,       campo: ip}
+  - {tratamiento: ip_generalizada, campo: ip}
 
 rule_sets:
   todas: [fallos_por_ip, fallos_por_usuario, usuarios_unicos_por_ip, fallos_por_ventana]
 
+# D1 y D2 como ejes: se prueban las tres unidades y las dos reglas de etiquetado.
+units: [ventana, ventana_ip, ventana_usuario]
+labeling:
+  any:    {rule: any}
+  frac50: {rule: fraction, min_fraction: 0.5}
+
 window_seconds: [300]
 
-detectors: [isolation_forest, umbral]
+detectors: [isolation_forest, ssif, umbral, umbral_calibrado]
 
 seeds: [0, 1]
