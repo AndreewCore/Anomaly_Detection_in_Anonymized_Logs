@@ -130,8 +130,42 @@ Una captura de 90 min son **3 segmentos de 30 min** que pueden correrse en días
 distintos; el parser los concatena como una sola línea de tiempo. Perfiles:
 `concentrado`, `multi_cuenta`, `distribuido`, `spraying`. Mientras corre:
 `tail -f lab/output/_actual/victim/auth.log`. El detalle está en
-[`lab/README.md`](lab/README.md). También funciona en Windows con Docker Desktop
-usando los mismos comandos de `docker compose`.
+[`lab/README.md`](lab/README.md). En Windows se usan los mismos comandos dentro de
+WSL2 (ver §5.4).
+
+### 5.4 Laboratorio en Windows (WSL2)
+
+Los scripts del laboratorio (`capture.sh`, `sync_drive.sh`, los `.env`, `anomalia.c`)
+son de bash/Linux, así que en Windows se ejecutan dentro de **WSL2**, que es además
+el backend que usa Docker Desktop. En la práctica es la misma captura de Linux, solo
+que corriendo dentro de la distro de WSL.
+
+1. **Instala WSL2 y Docker Desktop** (una sola vez):
+   - En PowerShell como administrador: `wsl --install` (instala WSL2 + Ubuntu) y reinicia.
+   - Instala **Docker Desktop for Windows**. En *Settings → General* deja activado
+     «Use the WSL 2 based engine» y en *Settings → Resources → WSL Integration*
+     habilita tu distro Ubuntu.
+   - Verifica dentro de Ubuntu: `docker compose version`.
+2. **Clona el repo dentro del home de WSL** (`~`), **no** en `/mnt/c/…`: en `/mnt/c`
+   los permisos y el I/O rompen los bind-mounts y los `chmod`.
+   ```bash
+   cd ~ && git clone <url-del-repo> anonlogs && cd anonlogs
+   ```
+3. **Prepara el entorno** igual que en Linux (§5.1 y §5.2): crea el venv, instala
+   `requirements.txt`, copia `.env` (pon `ANON_SALT`, `DRIVE_REMOTE`, `DRIVE_FOLDER`) y
+   compila con `make -C tools/c anomalia`.
+4. **Captura y pipeline** con los mismos comandos: `lab/capture.sh concentrado 1 --minutes 5`,
+   luego los scripts `00`→`04` y `pytest`.
+
+Notas para trabajar **en paralelo** con la máquina Linux:
+
+- El `manifest.json` identifica al ejecutor por `$USER`, así que las capturas de cada
+  máquina quedan con nombres de carpeta distinguibles.
+- Usa **el mismo `ANON_SALT`** en ambas máquinas si quieres que los seudónimos sean
+  comparables entre capturas; usa uno distinto si los quieres independientes.
+- No edites el mismo branch desde las dos máquinas a la vez. Reparte el trabajo (p. ej.
+  Windows ejecuta capturas y las sube con `sync_drive.sh push capturas`; Linux lleva
+  el código y los PRs) o usa ramas `feature/*` separadas para evitar conflictos de git.
 
 ## 6. Orden de ejecución
 
