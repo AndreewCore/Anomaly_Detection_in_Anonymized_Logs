@@ -22,13 +22,14 @@ EVENT_COLUMNS = ["event_id", "timestamp", "timestamp_real", "segment", "host",
 # primero del siguiente caigan en la misma ventana de tiempo.
 _SEGMENT_GAP = timedelta(seconds=1)
 
-# Cabecera de syslog. El proceso puede traer pid entre corchetes (sshd[1234]).
+# Cabecera de syslog. El proceso puede traer pid entre corchetes (sshd[1234]) y
+# un guion: OpenSSH >= 9.8 registra la autenticación como ``sshd-session``.
 _RE_RFC3339 = re.compile(
     r"^(?P<ts>\d{4}-\d{2}-\d{2}T\S+)\s+(?P<host>\S+)\s+"
-    r"(?P<proc>\w+)(?:\[(?P<pid>\d+)\])?:\s+(?P<msg>.*)$")
+    r"(?P<proc>[\w-]+)(?:\[(?P<pid>\d+)\])?:\s+(?P<msg>.*)$")
 _RE_TRADITIONAL = re.compile(
     r"^(?P<ts>\w{3}\s+\d+\s+\d{2}:\d{2}:\d{2})\s+(?P<host>\S+)\s+"
-    r"(?P<proc>\w+)(?:\[(?P<pid>\d+)\])?:\s+(?P<msg>.*)$")
+    r"(?P<proc>[\w-]+)(?:\[(?P<pid>\d+)\])?:\s+(?P<msg>.*)$")
 
 # Extrae usuario/IP/puerto del texto del mensaje de sshd. ``invalid user`` es
 # opcional para cubrir tanto cuentas reales como inexistentes.

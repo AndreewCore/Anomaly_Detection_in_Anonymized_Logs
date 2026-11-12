@@ -28,6 +28,24 @@ def test_parsea_formato_lab(tmp_path):
     assert ev.iloc[0]["event_id"] == "lab_x:seg1:0"
 
 
+def test_parsea_proceso_sshd_session(tmp_path):
+    """OpenSSH >= 9.8 registra la autenticación como ``sshd-session`` (con guion).
+
+    El guion no es ``\\w``; si la regex solo aceptara ``\\w+`` descartaría estas
+    líneas y perdería todos los eventos de autenticación reales del laboratorio.
+    """
+    log = (
+        "2026-11-12T15:59:01.822405+00:00 victim sshd-session[515]: "
+        "Failed password for invalid user admin from 172.28.1.101 port 44054 ssh2\n"
+    )
+    ev = parsing.parse_auth_log(_write(tmp_path, "s.log", log), "lab_x", segment=1)
+    assert len(ev) == 1
+    assert ev.iloc[0]["process"] == "sshd-session"
+    assert ev.iloc[0]["pid"] == 515
+    assert ev.iloc[0]["event_type"] == "invalid_user"
+    assert ev.iloc[0]["src_ip"] == "172.28.1.101"
+
+
 def test_parsea_formato_loghub(tmp_path):
     """El formato tradicional (sin año) también se parsea, asumiendo el año dado."""
     ev = parsing.parse_auth_log(_write(tmp_path, "h.log", LOGHUB), "loghub", year=2023)
