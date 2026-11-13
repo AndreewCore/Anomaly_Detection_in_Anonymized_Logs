@@ -42,7 +42,9 @@ map_for() {
                           data/interim              datasets/interim
                           data/processed            datasets/processed" ;;
         resultados) echo "results/runs              results/runs
-                          results/sessions          results/sessions" ;;
+                          results/sessions          results/sessions
+                          results/tables            results/tables
+                          results/figures           results/figures" ;;
         *) return 1 ;;
     esac
 }
