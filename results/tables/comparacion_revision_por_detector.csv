@@ -1,0 +1,13 @@
+escenario,detector,f1_mean,recall_mean,n_ok
+"baseline (fiel, 11 typos=0)",isolation_forest,0.5833,0.5833,48
+"baseline (fiel, 11 typos=0)",ssif,0.7368,0.7368,38
+"baseline (fiel, 11 typos=0)",umbral,1.0,1.0,24
+"baseline (fiel, 11 typos=0)",umbral_calibrado,0.7368,0.7368,19
+v1 (9 typos marcados ataque),isolation_forest,0.5833,0.5833,48
+v1 (9 typos marcados ataque),ssif,0.6842,0.6842,38
+v1 (9 typos marcados ataque),umbral,1.0,1.0,24
+v1 (9 typos marcados ataque),umbral_calibrado,0.7368,0.7368,19
+v2 (6 typos marcados ataque),isolation_forest,0.5833,0.5833,48
+v2 (6 typos marcados ataque),ssif,0.5789,0.5789,38
+v2 (6 typos marcados ataque),umbral,1.0,1.0,24
+v2 (6 typos marcados ataque),umbral_calibrado,0.7368,0.7368,19

@@ -1,0 +1,22 @@
+escenario,tratamiento,detector,recall
+"baseline (fiel, 11 typos=0)",ip_generalizada,isolation_forest,1.0
+"baseline (fiel, 11 typos=0)",ip_generalizada,ssif,1.0
+"baseline (fiel, 11 typos=0)",original,isolation_forest,1.0
+"baseline (fiel, 11 typos=0)",original,ssif,1.0
+"baseline (fiel, 11 typos=0)",seudonimizada,isolation_forest,1.0
+"baseline (fiel, 11 typos=0)",seudonimizada,ssif,1.0
+"baseline (fiel, 11 typos=0)",suprimida,isolation_forest,0.0
+v1 (9 typos marcados ataque),ip_generalizada,isolation_forest,1.0
+v1 (9 typos marcados ataque),ip_generalizada,ssif,0.0
+v1 (9 typos marcados ataque),original,isolation_forest,1.0
+v1 (9 typos marcados ataque),original,ssif,1.0
+v1 (9 typos marcados ataque),seudonimizada,isolation_forest,1.0
+v1 (9 typos marcados ataque),seudonimizada,ssif,1.0
+v1 (9 typos marcados ataque),suprimida,isolation_forest,0.0
+v2 (6 typos marcados ataque),ip_generalizada,isolation_forest,1.0
+v2 (6 typos marcados ataque),ip_generalizada,ssif,0.0
+v2 (6 typos marcados ataque),original,isolation_forest,1.0
+v2 (6 typos marcados ataque),original,ssif,0.0
+v2 (6 typos marcados ataque),seudonimizada,isolation_forest,1.0
+v2 (6 typos marcados ataque),seudonimizada,ssif,0.0
+v2 (6 typos marcados ataque),suprimida,isolation_forest,0.0
