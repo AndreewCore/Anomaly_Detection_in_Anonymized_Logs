@@ -23,7 +23,7 @@ class CalibratedThresholdDetector(ThresholdDetector):
         y = np.asarray(y)
         normal = X.iloc[y == 0] if hasattr(X, "iloc") else X[y == 0]
         if len(normal) == 0:
-            raise ValueError("umbral_calibrado: no hay unidades normales en el entrenamiento.")
+            raise ValueError("sin unidades normales en entrenamiento")
         pct = self.params.get("percentile", 99)
         # Umbral mínimo de 1: evita dividir por 0 cuando una feature es siempre 0 en normales.
         self.thresholds_ = np.maximum(1.0, np.percentile(normal.to_numpy(dtype=float), pct, axis=0))
