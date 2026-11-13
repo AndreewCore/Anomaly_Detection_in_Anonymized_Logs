@@ -1,0 +1,5 @@
+tratamiento,isolation_forest__recall,ssif__recall,umbral__recall,umbral_calibrado__recall,isolation_forest__f1,ssif__f1,umbral__f1,umbral_calibrado__f1
+original,0.667,0.6,1.0,0.8,0.667,0.6,1.0,0.8
+seudonimizada,0.667,0.6,1.0,0.8,0.667,0.6,1.0,0.8
+ip_generalizada,0.667,0.6,1.0,0.8,0.667,0.6,1.0,0.8
+suprimida,0.333,0.5,1.0,0.5,0.333,0.5,1.0,0.5

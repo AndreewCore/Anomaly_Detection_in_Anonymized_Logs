@@ -33,7 +33,7 @@ class SSIFDetector(IsolationForestDetector):
             raise ValueError("SSIF necesita etiquetas de entrenamiento (y); no aplica a datasets sin Ground Truth.")
         normal = np.asarray(y) == 0
         if not normal.any():
-            raise ValueError("SSIF: la parte de entrenamiento no tiene unidades normales.")
+            raise ValueError("sin unidades normales en entrenamiento")
         # iloc filtra por posición: no depende de que el índice del DataFrame coincida con y.
         X_normal = X.iloc[normal] if hasattr(X, "iloc") else X[normal]
         self.model_ = self._new_model().fit(X_normal)
