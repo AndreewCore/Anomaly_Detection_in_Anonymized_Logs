@@ -14,7 +14,7 @@ from pathlib import Path
 import pandas as pd
 
 from anonlogs.config import REPO_ROOT, load_yaml
-from anonlogs import parsing
+from anonlogs import parsing, revision
 
 
 def _parse_lab(raw_dir: Path, dataset: str) -> pd.DataFrame:
@@ -39,6 +39,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--config", default="configs/experiment.yaml")
     parser.add_argument("--datasets", nargs="+", help="por defecto, todos los de experiment.yaml")
+    # Revisiones automáticas: si se pide un modo, se generan y aplican en esta misma
+    # pasada (y se guardan para auditar), en vez de leer el CSV marcado a mano.
+    parser.add_argument("--revision-mode", choices=revision.MODES, default=None,
+                        help="genera y aplica revisiones automáticas del GT (ver anonlogs.revision)")
+    parser.add_argument("--revision-frac", type=float, default=0.60, help="cobertura: fracción revisada")
+    parser.add_argument("--revision-rate", type=float, default=0.75, help="aciertos: tasa de acierto")
+    parser.add_argument("--revision-seed", type=int, default=0)
     args = parser.parse_args()
 
     exp = load_yaml(args.config)
@@ -67,7 +74,16 @@ def main() -> None:
                 gt = parsing.load_ground_truth(gt_path)
                 labels = parsing.link_ground_truth(events, gt)
                 rev_path = gt_dir / f"{name}_revisiones.csv"
-                if rev_path.is_file():
+                if args.revision_mode:
+                    legit = revision.load_legit(gt_dir, name)
+                    rev = revision.build_revisiones(events, gt, args.revision_mode,
+                                                    frac=args.revision_frac, rate=args.revision_rate,
+                                                    seed=args.revision_seed, legit=legit)
+                    rev.to_csv(rev_path, index=False)  # persistido para auditar la revisión
+                    labels = parsing.apply_revisions(labels, rev)
+                    print(f"  {name}: revisiones '{args.revision_mode}' generadas y aplicadas "
+                          f"({len(rev)}) -> {rev_path.name}")
+                elif rev_path.is_file():
                     labels = parsing.apply_revisions(labels, pd.read_csv(rev_path))
                     print(f"  {name}: revisiones aplicadas desde {rev_path.name}")
                 labels.to_csv(out_dir / "labels.csv", index=False)
