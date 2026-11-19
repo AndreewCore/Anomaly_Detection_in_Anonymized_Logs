@@ -15,6 +15,10 @@ Estado de las mejoras de `tools/c/anomalia.c` y del laboratorio.
       largo del segmento (decisión D4).
 - [x] **Tráfico legítimo.** `lab/legit_traffic/generate_legit.sh` hace logins
       exitosos con intervalos exponenciales y errores de tipeo ocasionales.
+- [x] **Acceso exitoso anómalo.** `anomalia ssh -x CLAVE [-e USER] [-X N]` intercala
+      logins **exitosos** de una cuenta comprometida (genera `Accepted password` desde
+      la IP atacante). Se registra en el GT como ataque; se distingue por
+      `event_type == "accepted"` con `is_attack == 1`.
 - [x] **Bug del modo `ftp`.** Ya usa el `host` recibido en vez de `localhost`.
 
 ## Pendiente

@@ -31,6 +31,12 @@ typedef struct {
     int duracion_s;        // ventana del segmento; 0 = una sola ráfaga sin espera
     int rafagas;
     unsigned seed;
+    // Acceso exitoso anómalo: login válido de una cuenta comprometida, intercalado
+    // en la ráfaga. Genera "Accepted password" desde la IP atacante (un positivo que
+    // las features de fallos no ven). NULL en clave_valida = desactivado.
+    const char *clave_valida;    // clave real de la cuenta comprometida (-x)
+    const char *usuario_valido;  // cuenta comprometida (-e)
+    int exitos_por_rafaga;       // accesos exitosos por ráfaga (-X)
     const char *gt_path;   // CSV de Ground Truth (append); NULL = no escribir
     const char *src_ip;    // IP propia, para la fila de GT
     const char *atacante;  // nombre lógico (p. ej. attacker_1), para la fila de GT
@@ -147,6 +153,32 @@ static void ejecutar_rafaga(const ssh_cfg *c, int burst_id, FILE *gt)
                 usleep((useconds_t)(c->pausa_ms * 1000));
         }
     }
+
+    // Acceso exitoso anómalo: tras los intentos fallidos, iniciar sesión con una
+    // credencial válida de la cuenta comprometida. Cada acceso queda en el GT como
+    // ataque (por IP+tiempo); aguas abajo se distingue por event_type == "accepted".
+    if (c->clave_valida && c->exitos_por_rafaga > 0)
+    {
+        for (int e = 0; e < c->exitos_por_rafaga; e++)
+        {
+            char ini[40], fin[40];
+            iso_utc_ms(ini, sizeof(ini));
+            intento_ssh(c->host, c->usuario_valido, c->clave_valida);
+            iso_utc_ms(fin, sizeof(fin));
+            if (gt)
+            {
+                fprintf(gt, "%s,%d,%d,%s,%s,%s,%s,%s\n",
+                        c->escenario ? c->escenario : "",
+                        c->segmento, burst_id,
+                        c->atacante ? c->atacante : "",
+                        c->src_ip ? c->src_ip : "",
+                        c->usuario_valido, ini, fin);
+                fflush(gt);
+            }
+            if (c->pausa_ms > 0)
+                usleep((useconds_t)(c->pausa_ms * 1000));
+        }
+    }
 }
 
 // Reparte `rafagas` a lo largo de `duracion_s`, con un desfase seudoaleatorio por
@@ -163,6 +195,9 @@ static void ejecutar_ssh(const ssh_cfg *c)
 
     printf("ataque ssh contra %s — %d usuario(s) x %d clave(s), %d rafaga(s)\n",
            c->host, c->n_usuarios, c->intentos, c->rafagas);
+    if (c->clave_valida)
+        printf("  + acceso exitoso anomalo: %d/rafaga como %s\n",
+               c->exitos_por_rafaga, c->usuario_valido);
 
     if (c->rafagas <= 1 || c->duracion_s <= 0)
     {
@@ -291,6 +326,10 @@ static void uso(const char *prog)
     printf("  -a NAME    nombre del atacante (para el GT)\n");
     printf("  -S NAME    escenario (para el GT)\n");
     printf("  -k N       segmento (para el GT)\n");
+    printf("\nacceso exitoso anomalo (cuenta comprometida):\n");
+    printf("  -x CLAVE   clave valida; activa el acceso exitoso anomalo\n");
+    printf("  -e USER    cuenta comprometida                [def: alice si hay -x]\n");
+    printf("  -X N       accesos exitosos por rafaga        [def: 1 si hay -x]\n");
 }
 
 int main(int argc, char *argv[])
@@ -317,7 +356,7 @@ int main(int argc, char *argv[])
         // getopt empieza tras "ssh <host>"; saltamos esos dos primeros argumentos.
         int opt;
         optind = 3;
-        while ((opt = getopt(argc, argv, "u:w:n:p:d:b:s:g:I:a:S:k:")) != -1)
+        while ((opt = getopt(argc, argv, "u:w:n:p:d:b:s:g:I:a:S:k:x:e:X:")) != -1)
         {
             switch (opt)
             {
@@ -333,6 +372,9 @@ int main(int argc, char *argv[])
                 case 'a': c.atacante = optarg; break;
                 case 'S': c.escenario = optarg; break;
                 case 'k': c.segmento = atoi(optarg); break;
+                case 'x': c.clave_valida = optarg; break;
+                case 'e': c.usuario_valido = optarg; break;
+                case 'X': c.exitos_por_rafaga = atoi(optarg); break;
                 default: uso(argv[0]); return 1;
             }
         }
@@ -344,6 +386,14 @@ int main(int argc, char *argv[])
         c.usuarios = users_buf;
         c.claves = pass_buf;
         if (c.intentos < 1) c.intentos = 1;
+
+        // Acceso exitoso anómalo: -x lo activa. Sin -e se asume la cuenta de lab
+        // "alice"; sin -X se hace 1 acceso por ráfaga. Si no hay -x, queda inactivo.
+        if (c.clave_valida)
+        {
+            if (!c.usuario_valido) c.usuario_valido = "alice";
+            if (c.exitos_por_rafaga < 1) c.exitos_por_rafaga = 1;
+        }
 
         ejecutar_ssh(&c);
     }
