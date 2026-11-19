@@ -26,3 +26,10 @@ python scripts/01_parse_logs.py --datasets lab_concentrado
 # o en una sola pasada, sin CSV intermedio a mano:
 python scripts/01_parse_logs.py --datasets lab_concentrado --revision-mode aciertos --revision-rate 0.75
 ```
+
+Para una prueba de punta a punta (captura corta → ingesta → parseo con revisiones)
+hay un atajo que encadena los tres pasos:
+
+```bash
+scripts/prueba_rapida.sh concentrado 1 10 aciertos   # escenario seg minutos modo
+```
