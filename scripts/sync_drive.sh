@@ -3,6 +3,10 @@
 # No borra nada en el destino (usa `rclone copy`): varios integrantes suben sin
 # pisarse, porque las subcarpetas de capturas y de runs llevan nombre único.
 #
+# Las pruebas (capturas del lab y sesiones de runs) se dividen en Drive por fecha:
+# cada una cuelga de una carpeta <HH:MM-DD-MM-AAAA> derivada de su propia marca de
+# tiempo. El pull aplana esas carpetas de vuelta al layout local plano.
+#
 # Configura una sola vez el remoto y pon su nombre y carpeta en .env:
 #   rclone config                       # crea un remoto de Drive (p. ej. "drive")
 #   DRIVE_REMOTE=drive                  # en .env
@@ -33,20 +37,31 @@ DRY=""; [ "$FLAG" = "--dry-run" ] && DRY="--dry-run"
 
 REMOTE="${DRIVE_REMOTE}:${DRIVE_FOLDER}"
 
-# Pares "ruta_local  ruta_remota". Las features no se suben: se regeneran.
+# Pares "ruta_local  ruta_remota" para los grupos SIN dividir por fecha (datasets y
+# los agregados de resultados). Las features no se suben: se regeneran.
 map_for() {
     case "$1" in
-        capturas)   echo "lab/output                capturas" ;;
         datos)      echo "data/raw                  datasets/raw
                           data/ground_truth         datasets/ground_truth
                           data/interim              datasets/interim
                           data/processed            datasets/processed" ;;
         resultados) echo "results/runs              results/runs
-                          results/sessions          results/sessions
                           results/tables            results/tables
                           results/figures           results/figures" ;;
         *) return 1 ;;
     esac
+}
+
+# Etiqueta de carpeta por fecha (HH:MM-DD-MM-AAAA) a partir del nombre de una
+# carpeta de prueba, que empieza por AAAA-MM-DD_HHMM (lo fijan capture.sh y
+# 04_run_matrix.py). Si el nombre no trae esa marca, cae en "sin_fecha".
+date_label() {
+    local n; n="$(basename "$1")"
+    if [[ "$n" =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2})_([0-9]{2})([0-9]{2}) ]]; then
+        echo "${BASH_REMATCH[4]}:${BASH_REMATCH[5]}-${BASH_REMATCH[3]}-${BASH_REMATCH[2]}-${BASH_REMATCH[1]}"
+    else
+        echo "sin_fecha"
+    fi
 }
 
 sync_group() {
@@ -63,8 +78,48 @@ sync_group() {
     done
 }
 
+# Grupos divididos por fecha: cada prueba (captura o sesión de runs) se sube a
+# <remoto>/<HH:MM-DD-MM-AAAA>/<ruta relativa de la prueba>, para que en Drive queden
+# agrupadas por el momento en que se corrieron. `depth` es la profundidad de la
+# carpeta de prueba bajo la base local (capturas: <escenario>/<prueba> = 2;
+# sesiones: <prueba> = 1). El pull aplana: copia el contenido de cada carpeta de
+# fecha de vuelta a la base local, reconstruyendo el layout plano original.
+sync_dated() {
+    local local_base="$1" remote_base="$2" depth="$3" d rel label labels
+    if [ "$DIR_CMD" = "push" ]; then
+        [ -d "$local_base" ] || return 0
+        find "$local_base" -mindepth "$depth" -maxdepth "$depth" -type d \
+             -not -path '*/_actual/*' -not -name _actual | while read -r d; do
+            rel="${d#"$local_base"/}"
+            label="$(date_label "$d")"
+            echo ">> push $d -> $REMOTE/$remote_base/$label/$rel"
+            rclone copy "$d" "$REMOTE/$remote_base/$label/$rel" --progress $DRY || true
+        done
+    else
+        labels="$(rclone lsf "$REMOTE/$remote_base" --dirs-only 2>/dev/null || true)"
+        for label in $labels; do
+            echo ">> pull $REMOTE/$remote_base/${label%/} -> $local_base"
+            rclone copy "$REMOTE/$remote_base/${label%/}" "$local_base" --progress $DRY || true
+        done
+    fi
+}
+
+sync_all_resultados() {
+    sync_dated "results/sessions" "results/sessions" 1   # sesiones de runs, por fecha
+    sync_group resultados                                # runs/tables/figures (plano)
+}
+
+sync_what() {
+    case "$1" in
+        capturas)   sync_dated "lab/output" "capturas" 2 ;;  # <escenario>/<prueba>, por fecha
+        datos)      sync_group datos ;;
+        resultados) sync_all_resultados ;;
+        *) echo "grupo desconocido: $1"; return 1 ;;
+    esac
+}
+
 if [ "$WHAT" = "all" ]; then
-    for g in capturas datos resultados; do sync_group "$g"; done
+    for g in capturas datos resultados; do sync_what "$g"; done
 else
-    sync_group "$WHAT"
+    sync_what "$WHAT"
 fi
