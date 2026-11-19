@@ -24,6 +24,27 @@ del segmento y anota cada intento en un CSV de Ground Truth.
 | `-a NAME` | nombre del atacante (para la fila de GT) | — |
 | `-S NAME` | escenario (para la fila de GT) | — |
 | `-k N` | número de segmento (para la fila de GT) | — |
+| `-x CLAVE` | clave válida; **activa el acceso exitoso anómalo** | — (inactivo) |
+| `-e USER` | cuenta comprometida para el acceso exitoso | `alice` (si hay `-x`) |
+| `-X N` | accesos exitosos por ráfaga | `1` (si hay `-x`) |
+
+### Acceso exitoso anómalo
+
+Con `-x` el atacante, además de la fuerza bruta, inicia sesión **con éxito** usando la
+clave real de una cuenta comprometida (`-e`). Genera un `Accepted password` en el
+`auth.log` desde la IP atacante: un positivo que las features basadas en fallos no
+capturan. Cada acceso se registra en el mismo CSV de Ground Truth (misma cabecera de 8
+columnas) con `user` = la cuenta comprometida, así que `link_ground_truth` lo etiqueta
+como ataque por IP+tiempo. Aguas abajo se distingue del resto de ataques por
+`event_type == "accepted"` con `is_attack == 1`.
+
+Ejemplo:
+
+```
+anomalia ssh victim -u admin -n 50 -p 800 -d 1800 -b 2 -s 1001 \
+  -x clave_lab_legitima -e alice -X 1 \
+  -g /gt/concentrado_seg1.csv -I 172.28.1.101 -a attacker_1 -S concentrado -k 1
+```
 
 Ejemplo (lo arma el `entrypoint.sh` del atacante a partir del escenario):
 

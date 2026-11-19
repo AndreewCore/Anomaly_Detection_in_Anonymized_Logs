@@ -1,0 +1,3 @@
+n_ips,escenario,tratamiento,isolation_forest__f1,isolation_forest__recall,ssif__f1,ssif__recall,umbral__f1,umbral__recall,umbral_calibrado__f1,umbral_calibrado__recall
+1 IP,concentrado,ip_generalizada,0.667,0.667,0.8,0.8,1.0,1.0,0.8,0.8
+1 IP,concentrado,suprimida,0.333,0.333,0.5,0.5,1.0,1.0,0.5,0.5
