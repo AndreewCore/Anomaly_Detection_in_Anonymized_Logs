@@ -92,16 +92,18 @@ suben sin pisarse.
    ```
 3. Sube o baja:
    ```bash
-   scripts/sync_drive.sh push all              # sube capturas + datos + resultados
-   scripts/sync_drive.sh push capturas         # solo lab/output/
+   scripts/sync_drive.sh push all              # sube tests/ + datos + resultados
+   scripts/sync_drive.sh push tests            # solo las capturas (una carpeta por captura)
    scripts/sync_drive.sh pull resultados       # baja results/runs y results/sessions
    scripts/sync_drive.sh push all --dry-run    # muestra qué haría, sin tocar nada
    ```
 
-Las subcarpetas de capturas y de sesiones ya llevan en el nombre la fecha, la hora,
-el usuario, el nº de eventos y la duración, así que en Drive quedan ordenadas y
-rastreables. Cualquier integrante reconstruye las tablas desde los runs con
-`python scripts/05_build_tables.py --phase <fase>`.
+En Drive queda así: cada captura va a `tests/<captura>/` (el nombre ya trae
+fecha+hora, así que dos pruebas el mismo día no se pisan), y todo lo derivado
+—datos procesados, runs, sesiones y tablas— va a `_derivado/`. Ojo: `_derivado/`
+**no es por-test**; se sobrescribe en cada corrida y refleja el último
+procesamiento, no una captura concreta. Cualquier integrante reconstruye las tablas
+desde los runs con `python scripts/05_build_tables.py --phase <fase>`.
 
 ## 5. Instalación
 
