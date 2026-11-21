@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 # Sincroniza datos pesados con la carpeta compartida de Google Drive vía rclone.
-# No borra nada en el destino (usa `rclone copy`).
+# No borra nada en el destino (usa `rclone copy`): varios integrantes suben sin
+# pisarse, porque cada captura cuelga de su propio nombre único.
 #
-# Layout en Drive: la FECHA es la carpeta principal. Cada push crea una carpeta de
-# ejecución <AAAA-MM-DD_HH-MM> (la hora del push) y mete dentro los grupos:
+# Layout en Drive, pensado para distinguir pruebas por fecha:
 #
 #   AnonLogs/
-#     2026-11-20_00-31/            <- una ejecución (una sincronización)
-#       capturas/                  (lab/output: victim/ gt/ legit/)
-#       datos/                     (raw/ ground_truth/ interim/ processed/)
-#       resultados/                (runs/ sessions/ tables/ figures/)
+#     tests/                       <- una carpeta por CAPTURA (auto-fechada)
+#       2026-11-19_2356__seg1__andreew__2321eventos__11min/   victim/ gt/ legit/
+#       ...
+#     _derivado/                   <- NO es por-test: último procesamiento + tablas
+#       datos/        (raw/ ground_truth/ interim/ processed/)
+#       resultados/   (runs/ sessions/ tables/ figures/)
 #
-# Así cada ejecución queda autocontenida: datos sin procesar + ground truth +
-# tablas comparativas, sin mezclarse entre corridas. Para fijar el nombre de la
-# carpeta en vez de usar la hora, exporta EXEC (p. ej. EXEC=2026-11-20_prueba1).
+# Cada captura lleva su fecha y hora (AAAA-MM-DD_HHMM) en el nombre, así que dos
+# pruebas el mismo día caen en carpetas distintas de tests/ sin pisarse. Lo
+# derivado (datos procesados, runs, tablas) se sobrescribe en cada corrida —
+# refleja el ÚLTIMO procesamiento, no una captura concreta—, por eso va aparte.
 #
 # Configura una sola vez el remoto y pon su nombre y carpeta en .env:
 #   rclone config                       # crea un remoto de Drive (p. ej. "drive")
@@ -21,8 +24,7 @@
 #   DRIVE_FOLDER=AnonLogs               # carpeta del grupo en ese Drive
 #
 # Uso:
-#   scripts/sync_drive.sh push|pull [capturas|datos|resultados|all] [--dry-run]
-#   EXEC=2026-11-20_00-31 scripts/sync_drive.sh pull   # elegir una ejecución al bajar
+#   scripts/sync_drive.sh push|pull [tests|datos|resultados|all] [--dry-run]
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -33,72 +35,79 @@ if [ -f .env ]; then
     DRIVE_REMOTE="$(grep -E '^DRIVE_REMOTE=' .env | cut -d= -f2- || true)"
     DRIVE_FOLDER="$(grep -E '^DRIVE_FOLDER=' .env | cut -d= -f2- || true)"
 fi
-: "${DRIVE_REMOTE:=}" ; : "${DRIVE_FOLDER:=}" ; : "${EXEC:=}"
+: "${DRIVE_REMOTE:=}" ; : "${DRIVE_FOLDER:=}"
 
 DIR_CMD="${1:-}"; WHAT="${2:-all}"; FLAG="${3:-}"
 if [ -z "$DRIVE_REMOTE" ] || [ -z "$DRIVE_FOLDER" ]; then
     echo "Falta DRIVE_REMOTE o DRIVE_FOLDER en .env (ver cabecera de este script)."; exit 1
 fi
 if [ "$DIR_CMD" != "push" ] && [ "$DIR_CMD" != "pull" ]; then
-    echo "uso: scripts/sync_drive.sh push|pull [capturas|datos|resultados|all] [--dry-run]"; exit 1
+    echo "uso: scripts/sync_drive.sh push|pull [tests|datos|resultados|all] [--dry-run]"; exit 1
 fi
 DRY=""; [ "$FLAG" = "--dry-run" ] && DRY="--dry-run"
 
 REMOTE="${DRIVE_REMOTE}:${DRIVE_FOLDER}"
 
-# Pares "ruta_local  subruta_remota" dentro de la carpeta de ejecución. Las features
-# no se suben: se regeneran desde los datos.
-map_for() {
+# --- tests: una carpeta por captura -----------------------------------------
+# Cada captura vive en lab/output/<escenario>/<captura>/ y sube a tests/<captura>/.
+# El nombre <captura> ya trae fecha+hora (AAAA-MM-DD_HHMM), así que no colisiona
+# entre corridas; se excluye _actual (la captura en curso, aún sin nombre final).
+# Al bajar no se puede reconstruir el escenario de origen, así que el pull deja todo
+# en lab/output/_drive/ para inspección manual.
+sync_tests() {
+    local cap base
+    if [ "$DIR_CMD" = "push" ]; then
+        for cap in lab/output/*/*/ ; do
+            [ -d "$cap" ] || continue
+            # _actual es la captura en curso; cuelga como lab/output/_actual/{gt,legit,
+            # victim}, así que se descarta cualquier ruta que la contenga, no solo el
+            # nombre final.
+            [[ "$cap" == */_actual/* ]] && continue
+            base="$(basename "$cap")"
+            echo ">> push $cap -> tests/$base/"
+            rclone copy "$cap" "$REMOTE/tests/$base" --progress $DRY || true
+        done
+    else
+        echo ">> pull tests/ -> lab/output/_drive/"
+        rclone copy "$REMOTE/tests" lab/output/_drive --progress $DRY || true
+    fi
+}
+
+# --- _derivado: datos procesados + resultados (NO por-test) ------------------
+# Pares "ruta_local  subruta_remota" bajo _derivado/. Las features no se suben:
+# se regeneran desde los datos.
+map_derivado() {
     case "$1" in
-        capturas)   echo "lab/output                capturas" ;;
-        datos)      echo "data/raw                  datos/raw
-                          data/ground_truth         datos/ground_truth
-                          data/interim              datos/interim
-                          data/processed            datos/processed" ;;
-        resultados) echo "results/runs              resultados/runs
-                          results/sessions          resultados/sessions
-                          results/tables            resultados/tables
-                          results/figures           resultados/figures" ;;
+        datos)      echo "data/raw           _derivado/datos/raw
+                          data/ground_truth  _derivado/datos/ground_truth
+                          data/interim       _derivado/datos/interim
+                          data/processed     _derivado/datos/processed" ;;
+        resultados) echo "results/runs       _derivado/resultados/runs
+                          results/sessions   _derivado/resultados/sessions
+                          results/tables     _derivado/resultados/tables
+                          results/figures    _derivado/resultados/figures" ;;
         *) return 1 ;;
     esac
 }
 
-# Sincroniza un grupo bajo la carpeta de ejecución ($EXEC). En capturas se excluye
-# _actual (la captura en curso, sin nombre definitivo).
-sync_group() {
+sync_derivado() {
     local grp="$1" local_path remote_sub
-    map_for "$grp" | while read -r local_path remote_sub; do
+    map_derivado "$grp" | while read -r local_path remote_sub; do
         [ -z "$local_path" ] && continue
-        local -a excl=()
-        [ "$grp" = "capturas" ] && excl=(--exclude "_actual/**")
-        local remote_path="$REMOTE/$EXEC/$remote_sub"
         if [ "$DIR_CMD" = "push" ]; then
-            echo ">> push $local_path -> $EXEC/$remote_sub"
-            [ -e "$local_path" ] && rclone copy "$local_path" "$remote_path" \
-                ${excl[@]+"${excl[@]}"} --progress $DRY || true
+            echo ">> push $local_path -> $remote_sub"
+            [ -e "$local_path" ] && rclone copy "$local_path" "$REMOTE/$remote_sub" --progress $DRY || true
         else
-            echo ">> pull $EXEC/$remote_sub -> $local_path"
-            rclone copy "$remote_path" "$local_path" --progress $DRY || true
+            echo ">> pull $remote_sub -> $local_path"
+            rclone copy "$REMOTE/$remote_sub" "$local_path" --progress $DRY || true
         fi
     done
 }
 
-# Resuelve la carpeta de ejecución: al subir, la hora del push (o $EXEC si se fijó);
-# al bajar, la última ejecución en Drive (o $EXEC si se indicó).
-if [ "$DIR_CMD" = "push" ]; then
-    [ -z "$EXEC" ] && EXEC="$(date -u +%Y-%m-%d_%H-%M)"
-    echo ">> ejecución (carpeta en Drive): $EXEC"
-else
-    if [ -z "$EXEC" ]; then
-        EXEC="$(rclone lsf "$REMOTE" --dirs-only 2>/dev/null \
-                | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}_' | sort | tail -1 | sed 's#/$##')"
-    fi
-    [ -z "$EXEC" ] && { echo "No hay ejecuciones <fecha> en $REMOTE. Usa EXEC=<carpeta> para elegir una."; exit 1; }
-    echo ">> pull desde ejecución: $EXEC"
-fi
-
-if [ "$WHAT" = "all" ]; then
-    for g in capturas datos resultados; do sync_group "$g"; done
-else
-    sync_group "$WHAT"
-fi
+case "$WHAT" in
+    all)        sync_tests; sync_derivado datos; sync_derivado resultados ;;
+    tests)      sync_tests ;;
+    datos)      sync_derivado datos ;;
+    resultados) sync_derivado resultados ;;
+    *) echo "uso: scripts/sync_drive.sh push|pull [tests|datos|resultados|all] [--dry-run]"; exit 1 ;;
+esac
