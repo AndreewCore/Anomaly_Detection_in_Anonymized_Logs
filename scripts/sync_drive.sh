@@ -1,11 +1,22 @@
 #!/usr/bin/env bash
 # Sincroniza datos pesados con la carpeta compartida de Google Drive vía rclone.
 # No borra nada en el destino (usa `rclone copy`): varios integrantes suben sin
-# pisarse, porque las subcarpetas de capturas y de runs llevan nombre único.
+# pisarse, porque cada captura cuelga de su propio nombre único.
 #
-# Las pruebas (capturas del lab y sesiones de runs) se dividen en Drive por fecha:
-# cada una cuelga de una carpeta <HH:MM-DD-MM-AAAA> derivada de su propia marca de
-# tiempo. El pull aplana esas carpetas de vuelta al layout local plano.
+# Layout en Drive, pensado para distinguir pruebas por fecha:
+#
+#   AnonLogs/
+#     tests/                       <- una carpeta por CAPTURA (auto-fechada)
+#       2026-11-19_2356__seg1__andreew__2321eventos__11min/   victim/ gt/ legit/
+#       ...
+#     _derivado/                   <- NO es por-test: último procesamiento + tablas
+#       datos/        (raw/ ground_truth/ interim/ processed/)
+#       resultados/   (runs/ sessions/ tables/ figures/)
+#
+# Cada captura lleva su fecha y hora (AAAA-MM-DD_HHMM) en el nombre, así que dos
+# pruebas el mismo día caen en carpetas distintas de tests/ sin pisarse. Lo
+# derivado (datos procesados, runs, tablas) se sobrescribe en cada corrida —
+# refleja el ÚLTIMO procesamiento, no una captura concreta—, por eso va aparte.
 #
 # Configura una sola vez el remoto y pon su nombre y carpeta en .env:
 #   rclone config                       # crea un remoto de Drive (p. ej. "drive")
@@ -13,7 +24,7 @@
 #   DRIVE_FOLDER=AnonLogs               # carpeta del grupo en ese Drive
 #
 # Uso:
-#   scripts/sync_drive.sh push|pull [capturas|datos|resultados|all] [--dry-run]
+#   scripts/sync_drive.sh push|pull [tests|datos|resultados|all] [--dry-run]
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -31,95 +42,72 @@ if [ -z "$DRIVE_REMOTE" ] || [ -z "$DRIVE_FOLDER" ]; then
     echo "Falta DRIVE_REMOTE o DRIVE_FOLDER en .env (ver cabecera de este script)."; exit 1
 fi
 if [ "$DIR_CMD" != "push" ] && [ "$DIR_CMD" != "pull" ]; then
-    echo "uso: scripts/sync_drive.sh push|pull [capturas|datos|resultados|all] [--dry-run]"; exit 1
+    echo "uso: scripts/sync_drive.sh push|pull [tests|datos|resultados|all] [--dry-run]"; exit 1
 fi
 DRY=""; [ "$FLAG" = "--dry-run" ] && DRY="--dry-run"
 
 REMOTE="${DRIVE_REMOTE}:${DRIVE_FOLDER}"
 
-# Pares "ruta_local  ruta_remota" para los grupos SIN dividir por fecha (datasets y
-# los agregados de resultados). Las features no se suben: se regeneran.
-map_for() {
+# --- tests: una carpeta por captura -----------------------------------------
+# Cada captura vive en lab/output/<escenario>/<captura>/ y sube a tests/<captura>/.
+# El nombre <captura> ya trae fecha+hora (AAAA-MM-DD_HHMM), así que no colisiona
+# entre corridas; se excluye _actual (la captura en curso, aún sin nombre final).
+# Al bajar no se puede reconstruir el escenario de origen, así que el pull deja todo
+# en lab/output/_drive/ para inspección manual.
+sync_tests() {
+    local cap base
+    if [ "$DIR_CMD" = "push" ]; then
+        for cap in lab/output/*/*/ ; do
+            [ -d "$cap" ] || continue
+            # _actual es la captura en curso; cuelga como lab/output/_actual/{gt,legit,
+            # victim}, así que se descarta cualquier ruta que la contenga, no solo el
+            # nombre final.
+            [[ "$cap" == */_actual/* ]] && continue
+            base="$(basename "$cap")"
+            echo ">> push $cap -> tests/$base/"
+            rclone copy "$cap" "$REMOTE/tests/$base" --progress $DRY || true
+        done
+    else
+        echo ">> pull tests/ -> lab/output/_drive/"
+        rclone copy "$REMOTE/tests" lab/output/_drive --progress $DRY || true
+    fi
+}
+
+# --- _derivado: datos procesados + resultados (NO por-test) ------------------
+# Pares "ruta_local  subruta_remota" bajo _derivado/. Las features no se suben:
+# se regeneran desde los datos.
+map_derivado() {
     case "$1" in
-        datos)      echo "data/raw                  datasets/raw
-                          data/ground_truth         datasets/ground_truth
-                          data/interim              datasets/interim
-                          data/processed            datasets/processed" ;;
-        resultados) echo "results/runs              results/runs
-                          results/tables            results/tables
-                          results/figures           results/figures" ;;
+        datos)      echo "data/raw           _derivado/datos/raw
+                          data/ground_truth  _derivado/datos/ground_truth
+                          data/interim       _derivado/datos/interim
+                          data/processed     _derivado/datos/processed" ;;
+        resultados) echo "results/runs       _derivado/resultados/runs
+                          results/sessions   _derivado/resultados/sessions
+                          results/tables     _derivado/resultados/tables
+                          results/figures    _derivado/resultados/figures" ;;
         *) return 1 ;;
     esac
 }
 
-# Etiqueta de carpeta por fecha (HH:MM-DD-MM-AAAA) a partir del nombre de una
-# carpeta de prueba, que empieza por AAAA-MM-DD_HHMM (lo fijan capture.sh y
-# 04_run_matrix.py). Si el nombre no trae esa marca, cae en "sin_fecha".
-date_label() {
-    local n; n="$(basename "$1")"
-    if [[ "$n" =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2})_([0-9]{2})([0-9]{2}) ]]; then
-        echo "${BASH_REMATCH[4]}:${BASH_REMATCH[5]}-${BASH_REMATCH[3]}-${BASH_REMATCH[2]}-${BASH_REMATCH[1]}"
-    else
-        echo "sin_fecha"
-    fi
-}
-
-sync_group() {
-    local grp="$1" local_path remote_path
-    map_for "$grp" | while read -r local_path remote_path; do
+sync_derivado() {
+    local grp="$1" local_path remote_sub
+    map_derivado "$grp" | while read -r local_path remote_sub; do
         [ -z "$local_path" ] && continue
         if [ "$DIR_CMD" = "push" ]; then
-            echo ">> push $local_path -> $REMOTE/$remote_path"
-            [ -e "$local_path" ] && rclone copy "$local_path" "$REMOTE/$remote_path" --progress $DRY || true
+            echo ">> push $local_path -> $remote_sub"
+            [ -e "$local_path" ] && rclone copy "$local_path" "$REMOTE/$remote_sub" --progress $DRY || true
         else
-            echo ">> pull $REMOTE/$remote_path -> $local_path"
-            rclone copy "$REMOTE/$remote_path" "$local_path" --progress $DRY || true
+            echo ">> pull $remote_sub -> $local_path"
+            rclone copy "$REMOTE/$remote_sub" "$local_path" --progress $DRY || true
         fi
     done
 }
 
-# Grupos divididos por fecha: cada prueba (captura o sesión de runs) se sube a
-# <remoto>/<HH:MM-DD-MM-AAAA>/<ruta relativa de la prueba>, para que en Drive queden
-# agrupadas por el momento en que se corrieron. `depth` es la profundidad de la
-# carpeta de prueba bajo la base local (capturas: <escenario>/<prueba> = 2;
-# sesiones: <prueba> = 1). El pull aplana: copia el contenido de cada carpeta de
-# fecha de vuelta a la base local, reconstruyendo el layout plano original.
-sync_dated() {
-    local local_base="$1" remote_base="$2" depth="$3" d rel label labels
-    if [ "$DIR_CMD" = "push" ]; then
-        [ -d "$local_base" ] || return 0
-        find "$local_base" -mindepth "$depth" -maxdepth "$depth" -type d \
-             -not -path '*/_actual/*' -not -name _actual | while read -r d; do
-            rel="${d#"$local_base"/}"
-            label="$(date_label "$d")"
-            echo ">> push $d -> $REMOTE/$remote_base/$label/$rel"
-            rclone copy "$d" "$REMOTE/$remote_base/$label/$rel" --progress $DRY || true
-        done
-    else
-        labels="$(rclone lsf "$REMOTE/$remote_base" --dirs-only 2>/dev/null || true)"
-        for label in $labels; do
-            echo ">> pull $REMOTE/$remote_base/${label%/} -> $local_base"
-            rclone copy "$REMOTE/$remote_base/${label%/}" "$local_base" --progress $DRY || true
-        done
-    fi
-}
-
-sync_all_resultados() {
-    sync_dated "results/sessions" "results/sessions" 1   # sesiones de runs, por fecha
-    sync_group resultados                                # runs/tables/figures (plano)
-}
-
-sync_what() {
-    case "$1" in
-        capturas)   sync_dated "lab/output" "capturas" 2 ;;  # <escenario>/<prueba>, por fecha
-        datos)      sync_group datos ;;
-        resultados) sync_all_resultados ;;
-        *) echo "grupo desconocido: $1"; return 1 ;;
-    esac
-}
-
-if [ "$WHAT" = "all" ]; then
-    for g in capturas datos resultados; do sync_what "$g"; done
-else
-    sync_what "$WHAT"
-fi
+case "$WHAT" in
+    all)        sync_tests; sync_derivado datos; sync_derivado resultados ;;
+    tests)      sync_tests ;;
+    datos)      sync_derivado datos ;;
+    resultados) sync_derivado resultados ;;
+    *) echo "uso: scripts/sync_drive.sh push|pull [tests|datos|resultados|all] [--dry-run]"; exit 1 ;;
+esac
