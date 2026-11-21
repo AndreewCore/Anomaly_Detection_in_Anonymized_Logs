@@ -51,6 +51,7 @@ def main() -> None:
 
     raw_dir = REPO_ROOT / exp["paths"]["raw"] / "lab" / args.scenario
     gt_frames = []
+    legit_frames = []
     for seg, folder in sorted(capturas.items()):
         auth = folder / "victim" / "auth.log"
         if not auth.is_file():
@@ -61,6 +62,9 @@ def main() -> None:
         shutil.copy2(auth, dest / "auth.log")
         for gt in (folder / "gt").glob("*.csv"):
             gt_frames.append(pd.read_csv(gt))
+        # Las bitácoras legítimas corroboran los typos al simular revisiones del GT.
+        for lg in (folder / "legit").glob("*.csv"):
+            legit_frames.append(pd.read_csv(lg))
         print(f"  segmento {seg}: {folder.name} -> {dest}")
 
     expected = max(capturas)
@@ -68,12 +72,21 @@ def main() -> None:
     if faltan:
         print(f"  aviso: faltan segmentos {faltan} (puedes capturarlos otro día)")
 
+    gt_root = REPO_ROOT / exp["paths"]["ground_truth"]
+    gt_root.mkdir(parents=True, exist_ok=True)
     if gt_frames:
         gt_all = pd.concat(gt_frames, ignore_index=True).drop_duplicates()
-        gt_path = REPO_ROOT / exp["paths"]["ground_truth"] / f"lab_{args.scenario}.csv"
-        gt_path.parent.mkdir(parents=True, exist_ok=True)
+        gt_path = gt_root / f"lab_{args.scenario}.csv"
         gt_all.to_csv(gt_path, index=False)
         print(f"Ground Truth consolidado: {gt_path} ({len(gt_all)} filas)")
+
+    # Bitácora legítima consolidada (<dataset>_legit.csv), paralela al GT; la usan
+    # las revisiones automáticas (anonlogs.revision) para corroborar typos.
+    if legit_frames:
+        legit_all = pd.concat(legit_frames, ignore_index=True).drop_duplicates()
+        legit_path = gt_root / f"lab_{args.scenario}_legit.csv"
+        legit_all.to_csv(legit_path, index=False)
+        print(f"Bitácora legítima consolidada: {legit_path} ({len(legit_all)} filas)")
 
 
 if __name__ == "__main__":
